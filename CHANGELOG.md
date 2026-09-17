@@ -5,6 +5,9 @@
 - Expand Windows environment variables in `Sources.ExternalPath`.
 - Write `%USERPROFILE%\Music` into newly created INI files without embedding a username.
 - Keep a blank `ExternalPath` as the redirected Windows Music known-folder fallback.
+- Add a configurable bounded derived-audio cache, defaulting to 4096 MiB.
+- Prepare a configurable upcoming playlist window, defaulting to five tracks, instead of converting the complete library at startup.
+- Evict least-recently-used cache files while protecting the active and upcoming tracks.
 
 ## 0.8.1 - 2026-09-16
 

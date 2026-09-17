@@ -14,7 +14,7 @@ Version 0.8.1 is the first tested baseline. It is pinned to Workers & Resources 
 - Uses the game's music volume, pause, resume, stop, and next-track behavior.
 - Shuffles the complete eligible catalog and starts a new shuffled cycle after every track has played.
 
-External XWMA discovery exists but remains preliminary until a broader external-file test matrix is complete. The bounded cache and five-track background prefetch design are planned work; 0.8.1 prepares the complete custom catalog during startup.
+External XWMA discovery exists but remains preliminary until a broader external-file test matrix is complete. The current development build bounds derived audio and prepares only the upcoming playlist window; the tested `v0.8.1` tag still prepares the complete custom catalog during startup.
 
 ## Install
 
@@ -43,6 +43,12 @@ ExternalRecursive=true
 PluginLocalEnabled=false
 PluginLocalRecursive=true
 
+[Cache]
+; Maximum derived-audio cache size in MiB. Zero means unlimited.
+MaxSizeMiB=4096
+; Number of upcoming playlist entries kept ready.
+PrefetchTracks=5
+
 [Originals]
 ; all, selected, or none
 Mode=all
@@ -55,6 +61,8 @@ Environment variables such as `%USERPROFILE%\Music` are expanded when the plugin
 ## Data and diagnostics
 
 Derived audio and logs are written under `%LOCALAPPDATA%\RedWolfRadio`. Original music and user source files are read-only inputs. The cache can be deleted while the game is closed; Red Wolf Radio recreates required files on the next launch.
+
+`MaxSizeMiB=0` disables cache eviction. With a finite limit, Red Wolf Radio removes the least-recently-used derived files first. The active track and the upcoming `PrefetchTracks` window are never evicted, so the cache can temporarily remain above the configured limit when those protected tracks alone are larger than the limit.
 
 ## Build and test
 

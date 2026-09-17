@@ -15,6 +15,27 @@ static const char* expectedSource;
 static void require(bool condition, const char* message) {
     if (!condition) { fprintf(stderr, "FAIL: %s\n", message); exit(1); }
 }
+static void writeSizedFile(const std::wstring& path, DWORD bytes) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    require(file != INVALID_HANDLE_VALUE, "create cache eviction fixture");
+    LARGE_INTEGER end{}; end.QuadPart = bytes;
+    require(SetFilePointerEx(file, end, nullptr, FILE_BEGIN) && SetEndOfFile(file),
+        "size cache eviction fixture");
+    CloseHandle(file);
+}
+static void ageFile(const std::wstring& path, ULONGLONG secondsAgo) {
+    FILETIME now{}; GetSystemTimeAsFileTime(&now);
+    ULARGE_INTEGER stamp{}; stamp.LowPart = now.dwLowDateTime; stamp.HighPart = now.dwHighDateTime;
+    stamp.QuadPart -= secondsAgo * 10000000ull;
+    FILETIME time{}; time.dwLowDateTime = stamp.LowPart; time.dwHighDateTime = stamp.HighPart;
+    HANDLE file = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, nullptr);
+    require(file != INVALID_HANDLE_VALUE && SetFileTime(file, nullptr, nullptr, &time),
+        "timestamp cache eviction fixture");
+    CloseHandle(file);
+}
 static void checkInputError() { require(GetLastError() == 1234, "incoming last-error preserved"); }
 #define FAKE_VOID(fn, k) static void fn() { checkInputError(); ++called[k]; SetLastError(5678); }
 FAKE_VOID(fakeInit, Init)
@@ -58,6 +79,64 @@ int main() {
         "environment variables expand in configured music paths");
     require(SetEnvironmentVariableW(L"RWR_TEST_PROFILE", nullptr) != 0,
         "clear path-expansion test environment variable");
+    uint64_t parsed = 0;
+    require(parseIniUnsigned("4096", 0, 1048576, parsed) && parsed == 4096,
+        "cache size parser accepts bounded integer");
+    require(parseIniUnsigned("0", 0, 1048576, parsed) && parsed == 0,
+        "cache size parser accepts unlimited sentinel");
+    require(!parseIniUnsigned("-1", 0, 1048576, parsed) &&
+        !parseIniUnsigned("5x", 1, 256, parsed),
+        "cache numeric parser rejects malformed values");
+
+    wchar_t tempRoot[MAX_PATH * 4]{};
+    require(GetTempPathW(static_cast<DWORD>(std::size(tempRoot)), tempRoot) > 0,
+        "resolve cache eviction fixture root");
+    std::wstring cacheFixture = tempRoot;
+    cacheFixture += L"RedWolfRadio-cache-test-" + std::to_wstring(GetCurrentProcessId());
+    require(CreateDirectoryW(cacheFixture.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS,
+        "create cache eviction fixture folder");
+    const std::wstring protectedFile = cacheFixture + L"\\protected.wav";
+    const std::wstring middleFile = cacheFixture + L"\\middle.wav";
+    const std::wstring newestFile = cacheFixture + L"\\newest.wav";
+    writeSizedFile(protectedFile, 700 * 1024);
+    writeSizedFile(middleFile, 700 * 1024);
+    writeSizedFile(newestFile, 700 * 1024);
+    ageFile(protectedFile, 300); ageFile(middleFile, 200); ageFile(newestFile, 100);
+    manager = ManagerState{};
+    manager.cacheDirectory = cacheFixture;
+    manager.config.cacheMaxSizeMiB = 1;
+    manager.config.prefetchTracks = 1;
+    Track protectedTrack; protectedTrack.id = "external:protected.wav";
+    protectedTrack.nativePlayable = true; protectedTrack.preparation = PreparationState::Ready;
+    protectedTrack.preparedWide = protectedFile;
+    manager.catalog.push_back(protectedTrack);
+    manager.playBag.push_back(0); manager.trackSelectionDirty = false;
+    manager.activeTrackId = protectedTrack.id;
+    require(pruneCacheToConfiguredLimit() <= 1024ull * 1024ull,
+        "LRU eviction reaches configured cache limit");
+    require(GetFileAttributesW(protectedFile.c_str()) != INVALID_FILE_ATTRIBUTES,
+        "active and prefetched cache file is protected");
+    require(GetFileAttributesW(middleFile.c_str()) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(newestFile.c_str()) == INVALID_FILE_ATTRIBUTES,
+        "oldest unprotected cache files are evicted");
+    DeleteFileW(protectedFile.c_str());
+    RemoveDirectoryW(cacheFixture.c_str());
+
+    manager = ManagerState{};
+    manager.config.prefetchTracks = 1;
+    Track waiting; waiting.id = "external:waiting.mp3";
+    waiting.preparation = PreparationState::Pending;
+    Track ready; ready.id = "external:ready.wav";
+    ready.preparation = PreparationState::Ready; ready.nativePlayable = true;
+    manager.catalog.push_back(waiting); manager.catalog.push_back(ready);
+    manager.playBag = {0, 1}; manager.trackSelectionDirty = false;
+    require(nextPrefetchCandidateLocked() == 0, "pending head track is selected for background preparation");
+    const Track* nonBlockingPick = pickTrackLocked();
+    require(nonBlockingPick && nonBlockingPick->id == "external:ready.wav",
+        "music callback skips an unprepared track without doing file work");
+    require(pickTrackLocked() == nullptr && nextPrefetchCandidateLocked() == 0,
+        "pending track remains queued until the worker prepares it");
+    manager = ManagerState{};
     TsmHost testHost{};
     testHost.exeModule = GetModuleHandleW(nullptr);
     testHost.exeBase = reinterpret_cast<unsigned char*>(0x10000000);
@@ -158,7 +237,7 @@ int main() {
     require(checkModule(GetModuleHandleW(nullptr), kExeHash) == false, "wrong module hash rejected");
     manager.catalog.clear();
     for (const char* id : {"external:a.wav", "external:b.wav", "external:c.wav"}) {
-        Track track; track.id = id; track.nativePlayable = true; track.absoluteUtf8 = "C:\\cache\\track.wav";
+        Track track; track.id = id; track.nativePlayable = true;
         manager.catalog.push_back(track);
     }
     manager.bannedTrackIds.clear(); manager.lastPlayedId.clear(); manager.trackSelectionDirty = true;
@@ -259,6 +338,6 @@ int main() {
     recording.store(true); prepare(); onStop(); checkOutputError();
     recording.store(false); closeLogBeforeHooks();
     require(tail == head && written > 500, "writer drains queued events and header");
-    puts("PASS: environment-path expansion, DLL loading/exports, ABI rejection, exactly-once forwarding, reshuffled complete playlist cycles without boundary repeats, six-second failed-track recovery, scoped cache-path redirection, executable RIP-relative continuation relocation, args/return/last-error preservation, invalid paths, bounded queue, 40,000 concurrent status calls, and asynchronous runtime logging.");
+    puts("PASS: environment-path expansion, bounded numeric config, protected LRU cache eviction, nonblocking prefetch scheduling, DLL loading/exports, ABI rejection, exactly-once forwarding, reshuffled complete playlist cycles without boundary repeats, six-second failed-track recovery, scoped cache-path redirection, executable RIP-relative continuation relocation, args/return/last-error preservation, invalid paths, bounded queue, 40,000 concurrent status calls, and asynchronous runtime logging.");
     return 0;
 }

@@ -17,15 +17,17 @@
 #include <random>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 #include "audio_converter.h"
 #include "rml_compat.h"
 
 namespace {
-constexpr char kVersion[] = "0.8.2-dev-environment-paths";
+constexpr char kVersion[] = "0.9.0-dev-bounded-cache";
 enum class TrackFormat { Wav, Flac, Mp3, Xwma, Unknown };
 enum class TrackSource { External, PluginLocal, Original };
 enum class OriginalsMode { All, Selected, None };
+enum class PreparationState { Ready, Pending, Preparing, Rejected };
 struct Config {
     bool externalEnabled = true;
     bool externalUseDefault = true;
@@ -33,6 +35,8 @@ struct Config {
     bool externalRecursive = true;
     bool pluginLocalEnabled = false;
     bool pluginLocalRecursive = true;
+    uint64_t cacheMaxSizeMiB = 4096;
+    uint32_t prefetchTracks = 5;
     OriginalsMode originalsMode = OriginalsMode::All;
     std::vector<std::string> excludedIds;
 };
@@ -41,9 +45,11 @@ struct Track {
     TrackSource source = TrackSource::External;
     std::string relativeUtf8;
     std::wstring absoluteWide;
-    std::string absoluteUtf8;
+    std::wstring preparedWide;
+    std::string preparedUtf8;
     TrackFormat format = TrackFormat::Unknown;
     bool nativePlayable = false;
+    PreparationState preparation = PreparationState::Pending;
 };
 struct ManagerState {
     Config config;
@@ -66,6 +72,9 @@ struct ManagerState {
     std::wstring cacheDirectory;
     size_t bagCursor = 0;
     std::string lastPlayedId;
+    unsigned converted = 0;
+    unsigned cacheHits = 0;
+    unsigned rejected = 0;
 };
 constexpr char kSentinelPath[] = "music/_red_wolf_radio_track";
 constexpr char kStorageFolder[] = "RedWolfRadio";
@@ -84,6 +93,7 @@ ManagerState manager;
 SRWLOCK stateLock = SRWLOCK_INIT;
 char currentRedirectPath[2048]{};
 HANDLE output = INVALID_HANDLE_VALUE, stopEvent = nullptr, writer = nullptr;
+HANDLE prefetchEvent = nullptr, prefetchWorker = nullptr;
 SRWLOCK queueLock = SRWLOCK_INIT;
 std::atomic<bool> recording{false};
 std::atomic<unsigned long long> nextCall{0}, dropped{0}, counts[8]{};
@@ -358,6 +368,11 @@ bool createDefaultIniIfMissing() {
         "; The optional local folder is Music beside RedWolfRadio.dll.\r\n"
         "PluginLocalEnabled=false\r\n"
         "PluginLocalRecursive=true\r\n\r\n"
+        "[Cache]\r\n"
+        "; Maximum derived-audio cache size in MiB. Zero means unlimited.\r\n"
+        "MaxSizeMiB=4096\r\n"
+        "; Number of upcoming playlist entries kept ready.\r\n"
+        "PrefetchTracks=5\r\n\r\n"
         "[Originals]\r\n"
         "; Mode may be all, selected, or none.\r\n"
         "Mode=all\r\n"
@@ -385,6 +400,16 @@ bool parseIniBool(const std::string& raw, bool& value) {
     if (text == "true" || text == "yes" || text == "on" || text == "1") { value = true; return true; }
     if (text == "false" || text == "no" || text == "off" || text == "0") { value = false; return true; }
     return false;
+}
+
+bool parseIniUnsigned(const std::string& raw, uint64_t minimum, uint64_t maximum, uint64_t& value) {
+    const std::string text = trimAscii(raw);
+    if (text.empty() || text.front() == '-') return false;
+    char* end = nullptr;
+    const unsigned long long parsed = strtoull(text.c_str(), &end, 10);
+    if (!end || *end != 0 || parsed < minimum || parsed > maximum) return false;
+    value = static_cast<uint64_t>(parsed);
+    return true;
 }
 
 bool parseConfig(Config& config, bool& malformed, std::string& error) {
@@ -415,6 +440,17 @@ bool parseConfig(Config& config, bool& malformed, std::string& error) {
         !parseIniBool(value, config.pluginLocalRecursive)) {
         malformed = true; error = "Sources.PluginLocalRecursive must be true or false"; return false;
     }
+    uint64_t number = 0;
+    if (!readIniValue("Cache", "MaxSizeMiB", "4096", value) ||
+        !parseIniUnsigned(value, 0, 1048576, number)) {
+        malformed = true; error = "Cache.MaxSizeMiB must be an integer from 0 through 1048576"; return false;
+    }
+    config.cacheMaxSizeMiB = number;
+    if (!readIniValue("Cache", "PrefetchTracks", "5", value) ||
+        !parseIniUnsigned(value, 1, 256, number)) {
+        malformed = true; error = "Cache.PrefetchTracks must be an integer from 1 through 256"; return false;
+    }
+    config.prefetchTracks = static_cast<uint32_t>(number);
     if (!readIniValue("Sources", "ExternalPath", "", value)) {
         malformed = true; error = "could not read Sources.ExternalPath"; return false;
     }
@@ -496,7 +532,6 @@ void collectTrackRecursively(const std::wstring& root,
         if (!relWide.empty()) relWide.push_back(L'\\');
         relWide += data.cFileName;
         if (!toUtf8(relWide, track.relativeUtf8)) continue;
-        if (!toUtf8(full, track.absoluteUtf8)) continue;
         track.absoluteWide = full;
         if (source == TrackSource::Original) {
             std::string game = "music/";
@@ -505,56 +540,212 @@ void collectTrackRecursively(const std::wstring& root,
         }
         track.nativePlayable = source == TrackSource::Original &&
             (format == TrackFormat::Wav || format == TrackFormat::Xwma);
+        if (track.nativePlayable) track.preparation = PreparationState::Ready;
+        else if (source != TrackSource::Original && format != TrackFormat::Xwma)
+            track.preparation = PreparationState::Pending;
+        else track.preparation = PreparationState::Rejected;
         track.id = makeTrackId(source, track.relativeUtf8);
         if (usedIds.insert(track.id).second) tracks.push_back(std::move(track));
     } while (FindNextFileW(it, &data));
     FindClose(it);
 }
 
-void prepareCustomAudio() {
-    unsigned converted = 0;
-    unsigned cacheHits = 0;
-    unsigned rejected = 0;
-    for (Track& track : manager.catalog) {
-        if (track.source == TrackSource::Original) continue;
-        if (track.format == TrackFormat::Xwma) {
-            ++rejected;
-            if (host && host->log) host->log("[RedWolfRadio] External XWMA remains disabled pending compatibility validation: %s", track.id.c_str());
-            continue;
+void rebuildPlayBag();
+
+std::wstring cachePathKey(std::wstring path) {
+    trimPathTrail(path);
+    toLower(path);
+    return path;
+}
+
+struct CacheEntry {
+    std::wstring path;
+    std::wstring key;
+    uint64_t bytes = 0;
+    uint64_t stamp = 0;
+};
+
+uint64_t configuredCacheLimitBytes() {
+    if (!manager.config.cacheMaxSizeMiB) return 0;
+    return manager.config.cacheMaxSizeMiB * 1024ull * 1024ull;
+}
+
+std::vector<CacheEntry> enumerateCacheFiles(const std::wstring& directory) {
+    std::vector<CacheEntry> files;
+    if (directory.empty()) return files;
+    std::wstring search = directory;
+    if (!isSeparator(search.back())) search.push_back(L'\\');
+    search += L"*.wav";
+    WIN32_FIND_DATAW data{};
+    HANDLE found = FindFirstFileW(search.c_str(), &data);
+    if (found == INVALID_HANDLE_VALUE) return files;
+    do {
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
+            _wcsicmp(data.cFileName, L"red_wolf_radio_silent.wav") == 0) continue;
+        CacheEntry entry;
+        entry.path = directory;
+        if (!isSeparator(entry.path.back())) entry.path.push_back(L'\\');
+        entry.path += data.cFileName;
+        entry.key = cachePathKey(entry.path);
+        entry.bytes = (static_cast<uint64_t>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        entry.stamp = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << 32) |
+            data.ftLastWriteTime.dwLowDateTime;
+        files.push_back(std::move(entry));
+    } while (FindNextFileW(found, &data));
+    FindClose(found);
+    return files;
+}
+
+bool cachePathProtectedLocked(const std::wstring& key) {
+    if (!manager.activeTrackId.empty()) {
+        for (const Track& track : manager.catalog) {
+            if (track.id == manager.activeTrackId &&
+                !track.preparedWide.empty() && cachePathKey(track.preparedWide) == key) return true;
         }
-        if (track.format != TrackFormat::Wav && track.format != TrackFormat::Flac && track.format != TrackFormat::Mp3) continue;
-        if (manager.cacheDirectory.empty()) {
-            ++rejected;
-            if (host && host->log) host->log("[RedWolfRadio] Cache unavailable; omitted: %s", track.id.c_str());
-            continue;
-        }
-        CanonicalAudioResult result;
-        std::string error;
-        if (!convertToCanonicalCache(track.absoluteWide, manager.cacheDirectory, result, error)) {
-            ++rejected;
-            if (host && host->log) host->log("[RedWolfRadio] Conversion failed; omitted %s: %s", track.id.c_str(), error.c_str());
-            continue;
-        }
-        std::string routed;
-        if (!toUtf8(result.path, routed) || routed.empty() || routed.size() >= 256) {
-            ++rejected;
-            if (host && host->log) host->log("[RedWolfRadio] Converted cache path exceeds the verified engine limit; omitted: %s", track.id.c_str());
-            continue;
-        }
-        track.absoluteWide = std::move(result.path);
-        track.absoluteUtf8 = std::move(routed);
-        track.nativePlayable = true;
-        if (result.cacheHit) ++cacheHits; else ++converted;
     }
-    if (host && host->log) host->log("[RedWolfRadio] Custom audio prepared: %u converted, %u cache hits, %u rejected.",
-        converted, cacheHits, rejected);
+    size_t considered = 0;
+    for (size_t position = manager.bagCursor;
+         position < manager.playBag.size() && considered < manager.config.prefetchTracks;
+         ++position, ++considered) {
+        const Track& track = manager.catalog[manager.playBag[position]];
+        if (!track.preparedWide.empty() && cachePathKey(track.preparedWide) == key) return true;
+    }
+    return false;
+}
+
+std::set<std::wstring> protectedCachePathsSnapshot() {
+    std::set<std::wstring> protectedPaths;
+    AcquireSRWLockExclusive(&stateLock);
+    if (manager.trackSelectionDirty) rebuildPlayBag();
+    if (!manager.activeTrackId.empty()) {
+        for (const Track& track : manager.catalog) {
+            if (track.id == manager.activeTrackId && !track.preparedWide.empty()) {
+                protectedPaths.insert(cachePathKey(track.preparedWide));
+                break;
+            }
+        }
+    }
+    size_t considered = 0;
+    for (size_t position = manager.bagCursor;
+         position < manager.playBag.size() && considered < manager.config.prefetchTracks;
+         ++position, ++considered) {
+        const Track& track = manager.catalog[manager.playBag[position]];
+        if (!track.preparedWide.empty()) protectedPaths.insert(cachePathKey(track.preparedWide));
+    }
+    ReleaseSRWLockExclusive(&stateLock);
+    return protectedPaths;
+}
+
+uint64_t pruneCacheToConfiguredLimit() {
+    const uint64_t limit = configuredCacheLimitBytes();
+    if (!limit || manager.cacheDirectory.empty()) return 0;
+    const std::set<std::wstring> protectedPaths = protectedCachePathsSnapshot();
+    std::vector<CacheEntry> files = enumerateCacheFiles(manager.cacheDirectory);
+    uint64_t total = 0;
+    for (const CacheEntry& file : files) total += file.bytes;
+    if (total <= limit) return total;
+    std::sort(files.begin(), files.end(), [](const CacheEntry& a, const CacheEntry& b) {
+        if (a.stamp != b.stamp) return a.stamp < b.stamp;
+        return a.key < b.key;
+    });
+    size_t removed = 0;
+    for (const CacheEntry& file : files) {
+        if (total <= limit) break;
+        if (protectedPaths.count(file.key)) continue;
+        AcquireSRWLockExclusive(&stateLock);
+        if (manager.trackSelectionDirty) rebuildPlayBag();
+        const bool protectedNow = cachePathProtectedLocked(file.key);
+        const bool deleted = !protectedNow && DeleteFileW(file.path.c_str()) != FALSE;
+        if (deleted) {
+            for (Track& track : manager.catalog) {
+                if (track.source == TrackSource::Original || track.preparedWide.empty()) continue;
+                if (cachePathKey(track.preparedWide) == file.key) {
+                    track.preparedWide.clear();
+                    track.preparedUtf8.clear();
+                    track.nativePlayable = false;
+                    track.preparation = PreparationState::Pending;
+                }
+            }
+            total -= file.bytes;
+            ++removed;
+        }
+        ReleaseSRWLockExclusive(&stateLock);
+    }
+    if (removed && host && host->log) host->log("[RedWolfRadio] Cache eviction removed %zu derived file(s).", removed);
+    if (total > limit && host && host->log) {
+        host->log("[RedWolfRadio] Cache remains above MaxSizeMiB because active/prefetched tracks are protected.");
+    }
+    return total;
+}
+
+void touchCacheFile(const std::wstring& path) {
+    HANDLE file = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    FILETIME now{};
+    GetSystemTimeAsFileTime(&now);
+    SetFileTime(file, nullptr, nullptr, &now);
+    CloseHandle(file);
+}
+
+bool prepareTrackAtIndex(size_t index) {
+    std::wstring source;
+    std::string id;
+    AcquireSRWLockExclusive(&stateLock);
+    if (index >= manager.catalog.size() ||
+        manager.catalog[index].preparation != PreparationState::Pending) {
+        ReleaseSRWLockExclusive(&stateLock);
+        return false;
+    }
+    Track& pending = manager.catalog[index];
+    pending.preparation = PreparationState::Preparing;
+    source = pending.absoluteWide;
+    id = pending.id;
+    ReleaseSRWLockExclusive(&stateLock);
+
+    pruneCacheToConfiguredLimit();
+    CanonicalAudioResult result;
+    std::string error;
+    bool ok = !manager.cacheDirectory.empty() &&
+        convertToCanonicalCache(source, manager.cacheDirectory, result, error);
+    std::string routed;
+    if (ok && (!toUtf8(result.path, routed) || routed.empty() || routed.size() >= 256)) {
+        ok = false;
+        error = "converted cache path exceeds the verified engine limit";
+    }
+
+    AcquireSRWLockExclusive(&stateLock);
+    if (index < manager.catalog.size() && manager.catalog[index].id == id) {
+        Track& track = manager.catalog[index];
+        if (ok) {
+            track.preparedWide = result.path;
+            track.preparedUtf8 = routed;
+            track.nativePlayable = true;
+            track.preparation = PreparationState::Ready;
+            if (result.cacheHit) ++manager.cacheHits; else ++manager.converted;
+        } else {
+            track.nativePlayable = false;
+            track.preparation = PreparationState::Rejected;
+            ++manager.rejected;
+            manager.trackSelectionDirty = true;
+        }
+    }
+    ReleaseSRWLockExclusive(&stateLock);
+    if (ok) {
+        touchCacheFile(result.path);
+        pruneCacheToConfiguredLimit();
+    } else if (host && host->log) {
+        host->log("[RedWolfRadio] Conversion failed; omitted %s: %s", id.c_str(), error.c_str());
+    }
+    return ok;
 }
 
 void rebuildPlayBag() {
     manager.playBag.clear();
     for (size_t i = 0; i < manager.catalog.size(); ++i) {
         const Track& track = manager.catalog[i];
-        if (!track.nativePlayable) continue;
+        if (track.preparation == PreparationState::Rejected) continue;
         if (manager.bannedTrackIds.count(track.id)) continue;
         if (track.source == TrackSource::Original) {
             if (manager.config.originalsMode == OriginalsMode::None) continue;
@@ -592,6 +783,12 @@ const Track* pickTrackLocked() {
         }
         manager.bagCursor = 0;
     }
+    size_t readyPosition = manager.bagCursor;
+    while (readyPosition < manager.playBag.size() &&
+           !manager.catalog[manager.playBag[readyPosition]].nativePlayable) ++readyPosition;
+    if (readyPosition >= manager.playBag.size()) return nullptr;
+    if (readyPosition != manager.bagCursor)
+        std::swap(manager.playBag[readyPosition], manager.playBag[manager.bagCursor]);
     const Track& track = manager.catalog[manager.playBag[manager.bagCursor++]];
     manager.activeTrackId = track.id;
     manager.activeTrackSource = track.source;
@@ -599,6 +796,71 @@ const Track* pickTrackLocked() {
     manager.activeTrackPlaying = false;
     manager.activeLoadStart = 0;
     return &track;
+}
+
+size_t nextPrefetchCandidateLocked() {
+    if (manager.trackSelectionDirty) rebuildPlayBag();
+    size_t considered = 0;
+    for (size_t position = manager.bagCursor;
+         position < manager.playBag.size() && considered < manager.config.prefetchTracks;
+         ++position, ++considered) {
+        const size_t index = manager.playBag[position];
+        if (manager.catalog[index].preparation == PreparationState::Pending) return index;
+    }
+    return static_cast<size_t>(-1);
+}
+
+size_t nextPrefetchCandidate() {
+    AcquireSRWLockExclusive(&stateLock);
+    const size_t index = nextPrefetchCandidateLocked();
+    ReleaseSRWLockExclusive(&stateLock);
+    return index;
+}
+
+void prepareInitialPrefetchWindow() {
+    for (;;) {
+        const size_t index = nextPrefetchCandidate();
+        if (index == static_cast<size_t>(-1)) break;
+        prepareTrackAtIndex(index);
+    }
+    pruneCacheToConfiguredLimit();
+}
+
+DWORD WINAPI prefetchMain(void*) {
+    for (;;) {
+        if (WaitForSingleObject(prefetchEvent, INFINITE) != WAIT_OBJECT_0) return 0;
+        std::wstring activePath;
+        AcquireSRWLockShared(&stateLock);
+        if (!manager.activeTrackId.empty()) {
+            for (const Track& track : manager.catalog) {
+                if (track.id == manager.activeTrackId) { activePath = track.preparedWide; break; }
+            }
+        }
+        ReleaseSRWLockShared(&stateLock);
+        if (!activePath.empty()) touchCacheFile(activePath);
+        for (;;) {
+            const size_t index = nextPrefetchCandidate();
+            if (index == static_cast<size_t>(-1)) break;
+            prepareTrackAtIndex(index);
+        }
+    }
+}
+
+bool startPrefetchWorker() {
+    if (prefetchWorker) return true;
+    prefetchEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!prefetchEvent) return false;
+    prefetchWorker = CreateThread(nullptr, 0, prefetchMain, nullptr, 0, nullptr);
+    if (!prefetchWorker) {
+        CloseHandle(prefetchEvent);
+        prefetchEvent = nullptr;
+        return false;
+    }
+    return true;
+}
+
+void requestPrefetch() {
+    if (prefetchEvent) SetEvent(prefetchEvent);
 }
 
 void rebuildCatalog() {
@@ -641,14 +903,23 @@ void rebuildCatalog() {
             entry.first == TrackSource::Original ? true : (entry.first == TrackSource::External ? manager.config.externalRecursive : manager.config.pluginLocalRecursive),
             manager.catalog, usedIds);
     }
-    prepareCustomAudio();
-
     manager.excludedOriginalIds.clear();
     for (const std::string& id : manager.config.excludedIds) manager.excludedOriginalIds.insert(id);
+    manager.converted = 0;
+    manager.cacheHits = 0;
+    manager.rejected = 0;
+    for (const Track& track : manager.catalog) {
+        if (track.source != TrackSource::Original && track.preparation == PreparationState::Rejected) {
+            ++manager.rejected;
+            if (host && host->log) host->log("[RedWolfRadio] External XWMA remains disabled pending compatibility validation: %s", track.id.c_str());
+        }
+    }
     manager.trackSelectionDirty = true;
     manager.bagCursor = 0;
     manager.activeTrackId.clear();
     manager.lastPlayedId.clear();
+    rebuildPlayBag();
+    prepareInitialPrefetchWindow();
 }
 
 void logCatalogStats() {
@@ -664,6 +935,9 @@ void logCatalogStats() {
     host->log("[RedWolfRadio] Catalog prepared: %u tracks total, %u native-capable. Originals mode: %s. Config malformed: %s",
         total, native, mode, manager.configMalformed ? "yes" : "no");
     host->log("[RedWolfRadio] Excluded originals: %zu", manager.excludedOriginalIds.size());
+    host->log("[RedWolfRadio] Cache: MaxSizeMiB=%llu, PrefetchTracks=%u; startup prepared %u converted, %u cache hits, %u rejected.",
+        static_cast<unsigned long long>(manager.config.cacheMaxSizeMiB), manager.config.prefetchTracks,
+        manager.converted, manager.cacheHits, manager.rejected);
 }
 
 bool initializeCatalogFromConfig() {
@@ -710,7 +984,7 @@ bool selectTrackForReplacement(const Track*& trackOut) {
     if (!manager.runtimeEnabled || manager.catalog.empty()) return false;
     const Track* selected = pickTrackLocked();
     if (!selected || !selected->nativePlayable) return false;
-    const std::string& routed = selected->source == TrackSource::Original ? selected->relativeUtf8 : selected->absoluteUtf8;
+    const std::string& routed = selected->source == TrackSource::Original ? selected->relativeUtf8 : selected->preparedUtf8;
     if (routed.empty() || routed.size() >= 256 || routed.size() + 1 >= std::size(currentRedirectPath)) return false;
     if (selected->source != TrackSource::Original) memcpy(currentRedirectPath, routed.data(), routed.size() + 1);
     trackOut = selected;
@@ -853,6 +1127,7 @@ void onLoad(char* path) {
             }
         }
         ReleaseSRWLockExclusive(&stateLock);
+        requestPrefetch();
     }
     reinterpret_cast<LoadFn>(originals[Load])(forwarded);
     e.phase = 'E'; enqueue(e);
@@ -1153,8 +1428,13 @@ extern "C" __declspec(dllexport) int TsmPluginStart() {
             (nativeTrackCount > 0 || manager.config.originalsMode == OriginalsMode::None);
         if (manager.runtimeEnabled) {
             rebuildPlayBag();
+            if (!startPrefetchWorker()) {
+                host->log("[RedWolfRadio] Background prefetch worker unavailable; startup-prepared tracks remain usable.");
+            } else {
+                requestPrefetch();
+            }
             recording.store(true);
-            host->log("[RedWolfRadio] ACTIVE: 8 music IAT hooks plus scoped path resolver; converted catalog playback enabled.");
+            host->log("[RedWolfRadio] ACTIVE: 8 music IAT hooks plus scoped path resolver; bounded-cache playback enabled.");
         } else {
             recording.store(true);
             host->log("[RedWolfRadio] ACTIVE: 8 music IAT hooks plus scoped path resolver; playback disabled (no viable tracks).");

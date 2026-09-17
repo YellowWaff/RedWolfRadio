@@ -41,9 +41,9 @@ Every launch performs a fresh directory scan. Cache metadata may avoid repeated 
 
 The cache key is a digest of source content plus conversion profile and converter version. Writes go to a temporary file and are atomically renamed only after the WAV header, decoded frame count, and expected output format validate. The final cache filename is a short digest, keeping the path under the engine's verified 255-byte input limit. Removed sources stop appearing on the next launch; unreachable cache files may be pruned later without affecting discovery.
 
-Before public release, replace eager whole-library conversion with a bounded cache and background preparation. Fresh discovery still scans the complete configured library, but conversion admits only the upcoming playback window. Add `[Cache] MaxSizeMiB=4096` and `PrefetchTracks=5`; both are user-configurable, and `MaxSizeMiB=0` explicitly opts into an unlimited cache. Never evict the active track or the five-track prepared window. Evict least-recently-used derived files before admitting new conversions, and keep all filesystem and decoding work outside the game audio callbacks. This safeguard is planned and is not implemented in version 0.8.0.
+The development build uses a bounded cache and background preparation. Fresh discovery still scans the complete configured library, but conversion admits only the upcoming playback window. `[Cache] MaxSizeMiB=4096` and `PrefetchTracks=5` are user-configurable, and `MaxSizeMiB=0` explicitly opts into an unlimited cache. The active track and prepared window are protected. Least-recently-used derived files outside that set are evicted, and all filesystem and decoding work stays outside the game audio callbacks. If the protected set alone exceeds the configured limit, playback safety takes precedence and the condition is logged.
 
-Scan and conversion complete before hook activation. If initialization or compatibility validation fails, hooks remain pass-through and vanilla behavior continues. After activation, configuration is authoritative: `originals.mode = "none"` must not fall back to an original on custom-file failure.
+Scanning and the initial prefetch window complete before hook activation. Later preparation runs on a background worker. If initialization or compatibility validation fails, hooks remain pass-through and vanilla behavior continues. After activation, configuration is authoritative: `originals.mode = "none"` must not fall back to an original on custom-file failure.
 
 ## Configuration contract
 
@@ -59,6 +59,10 @@ ExternalPath=%USERPROFILE%\Music
 ExternalRecursive=true
 PluginLocalEnabled=false
 PluginLocalRecursive=true
+
+[Cache]
+MaxSizeMiB=4096
+PrefetchTracks=5
 
 [Originals]
 Mode=all
