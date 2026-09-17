@@ -1,0 +1,14 @@
+/tools/
+/build/
+/evidence/
+/dist/
+/assets/
+*.log
+*.tsv
+
+# Local tracing and installation helpers contain machine-specific game paths.
+/collect-trace.ps1
+/install-*.ps1
+/remove-*.ps1
+/TRACE-*.md
+/FEASIBILITY-PLAN.md
