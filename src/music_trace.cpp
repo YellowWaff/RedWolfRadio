@@ -733,6 +733,8 @@ bool prepareTrackAtIndex(size_t index) {
     }
     ReleaseSRWLockExclusive(&stateLock);
     if (ok) {
+        if (host && host->log) host->log("[RedWolfRadio] Prepared %s (%s).",
+            id.c_str(), result.cacheHit ? "cache hit" : "converted");
         touchCacheFile(result.path);
         pruneCacheToConfiguredLimit();
     } else if (host && host->log) {
