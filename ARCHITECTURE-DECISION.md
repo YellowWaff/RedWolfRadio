@@ -47,7 +47,7 @@ Scan and conversion complete before hook activation. If initialization or compat
 
 ## Configuration contract
 
-The first implementation uses one UTF-8 INI file. If it is absent, the plugin creates it beside the DLL with the resolved Windows Music known-folder path written explicitly. Invalid settings cause a clearly logged pass-through startup rather than silently changing the user's exclusions.
+The first implementation uses one UTF-8 INI file. If it is absent, the plugin creates it beside the DLL with a portable `%USERPROFILE%\Music` path. Environment variables are expanded when the configuration loads. A blank value resolves the Windows Music known folder and follows Windows folder redirection. Invalid settings cause a clearly logged pass-through startup rather than silently changing the user's exclusions.
 
 ```ini
 [RedWolfRadio]
@@ -55,7 +55,7 @@ SchemaVersion=1
 
 [Sources]
 ExternalEnabled=true
-ExternalPath=C:\Users\Example\Music
+ExternalPath=%USERPROFILE%\Music
 ExternalRecursive=true
 PluginLocalEnabled=false
 PluginLocalRecursive=true
@@ -65,7 +65,7 @@ Mode=all
 ExcludedIds=
 ```
 
-`ExternalPath` is initialized to the current Windows Music known folder and may be edited to another folder. `Mode` is `all`, `selected`, or `none`; comma-separated `ExcludedIds` applies when mode is `selected`. Unknown exclusion IDs are retained and reported so a temporarily missing original remains excluded if it returns. The player uses a launch-seeded shuffle bag over eligible stable IDs and avoids an immediate repeat when at least two entries exist.
+`ExternalPath` may contain Windows environment variables and may be edited to another folder. A blank value uses the current Windows Music known folder. `Mode` is `all`, `selected`, or `none`; comma-separated `ExcludedIds` applies when mode is `selected`. Unknown exclusion IDs are retained and reported so a temporarily missing original remains excluded if it returns. The player uses a launch-seeded shuffle bag over eligible stable IDs and avoids an immediate repeat when at least two entries exist.
 
 ## Runtime state model
 

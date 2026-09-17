@@ -50,6 +50,14 @@ static DWORD WINAPI poll(void*) {
     return 0;
 }
 int main() {
+    require(SetEnvironmentVariableW(L"RWR_TEST_PROFILE", L"C:\\Users\\Example") != 0,
+        "set path-expansion test environment variable");
+    std::wstring expandedPath;
+    require(expandEnvironmentPath(L"%RWR_TEST_PROFILE%\\Music", expandedPath) &&
+        expandedPath == L"C:\\Users\\Example\\Music",
+        "environment variables expand in configured music paths");
+    require(SetEnvironmentVariableW(L"RWR_TEST_PROFILE", nullptr) != 0,
+        "clear path-expansion test environment variable");
     TsmHost testHost{};
     testHost.exeModule = GetModuleHandleW(nullptr);
     testHost.exeBase = reinterpret_cast<unsigned char*>(0x10000000);
@@ -251,6 +259,6 @@ int main() {
     recording.store(true); prepare(); onStop(); checkOutputError();
     recording.store(false); closeLogBeforeHooks();
     require(tail == head && written > 500, "writer drains queued events and header");
-    puts("PASS: DLL loading/exports, ABI rejection, exactly-once forwarding, reshuffled complete playlist cycles without boundary repeats, six-second failed-track recovery, scoped cache-path redirection, executable RIP-relative continuation relocation, args/return/last-error preservation, invalid paths, bounded queue, 40,000 concurrent status calls, and asynchronous runtime logging.");
+    puts("PASS: environment-path expansion, DLL loading/exports, ABI rejection, exactly-once forwarding, reshuffled complete playlist cycles without boundary repeats, six-second failed-track recovery, scoped cache-path redirection, executable RIP-relative continuation relocation, args/return/last-error preservation, invalid paths, bounded queue, 40,000 concurrent status calls, and asynchronous runtime logging.");
     return 0;
 }

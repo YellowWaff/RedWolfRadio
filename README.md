@@ -35,8 +35,9 @@ SchemaVersion=1
 
 [Sources]
 ExternalEnabled=true
+; Environment variables such as %USERPROFILE% are expanded.
 ; Blank uses the current Windows account's configured Music known folder.
-ExternalPath=
+ExternalPath=%USERPROFILE%\Music
 ExternalRecursive=true
 ; The optional local source is Music beside RedWolfRadio.dll.
 PluginLocalEnabled=false
@@ -49,7 +50,7 @@ Mode=all
 ExcludedIds=
 ```
 
-The next development revision also accepts environment variables such as `%USERPROFILE%\Music` in `ExternalPath`. Leaving the value blank remains the best default because Windows can redirect the Music known folder to another location, including OneDrive.
+Environment variables such as `%USERPROFILE%\Music` are expanded when the plugin loads the configuration. Leaving the value blank uses the Windows Music known folder, which follows folder redirection to locations such as OneDrive.
 
 ## Data and diagnostics
 

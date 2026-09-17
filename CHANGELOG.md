@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Expand Windows environment variables in `Sources.ExternalPath`.
+- Write `%USERPROFILE%\Music` into newly created INI files without embedding a username.
+- Keep a blank `ExternalPath` as the redirected Windows Music known-folder fallback.
+
 ## 0.8.1 - 2026-09-16
 
 - Add a fresh launch-time catalog for arbitrary WAV, FLAC, MP3, and XWMA filenames.

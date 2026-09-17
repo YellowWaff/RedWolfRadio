@@ -22,7 +22,7 @@
 #include "rml_compat.h"
 
 namespace {
-constexpr char kVersion[] = "0.8.1-selected-track-logging";
+constexpr char kVersion[] = "0.8.2-dev-environment-paths";
 enum class TrackFormat { Wav, Flac, Mp3, Xwma, Unknown };
 enum class TrackSource { External, PluginLocal, Original };
 enum class OriginalsMode { All, Selected, None };
@@ -189,6 +189,17 @@ bool normalizeFullPath(const std::wstring& in, std::wstring& out) {
     return true;
 }
 
+bool expandEnvironmentPath(const std::wstring& in, std::wstring& out) {
+    if (in.empty()) { out.clear(); return true; }
+    const DWORD needed = ExpandEnvironmentStringsW(in.c_str(), nullptr, 0);
+    if (!needed || needed > 32768) return false;
+    std::vector<wchar_t> buffer(needed);
+    const DWORD written = ExpandEnvironmentStringsW(in.c_str(), buffer.data(), needed);
+    if (!written || written > needed) return false;
+    out.assign(buffer.data(), written - 1);
+    return true;
+}
+
 TrackFormat detectFormat(const std::wstring& path) {
     const wchar_t* dot = wcsrchr(path.c_str(), L'.');
     if (!dot) return TrackFormat::Unknown;
@@ -330,9 +341,7 @@ bool getPluginIniPath(std::wstring& path) {
 
 bool createDefaultIniIfMissing() {
     std::wstring iniPath;
-    std::wstring musicPath;
-    std::string musicUtf8;
-    if (!getPluginIniPath(iniPath) || !getKnownMusicFolder(musicPath) || !toUtf8(musicPath, musicUtf8)) return false;
+    if (!getPluginIniPath(iniPath)) return false;
     HANDLE file = CreateFileW(iniPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return GetLastError() == ERROR_FILE_EXISTS;
     std::string text =
@@ -342,7 +351,9 @@ bool createDefaultIniIfMissing() {
         "SchemaVersion=1\r\n\r\n"
         "[Sources]\r\n"
         "ExternalEnabled=true\r\n"
-        "ExternalPath=" + musicUtf8 + "\r\n"
+        "; Environment variables such as %USERPROFILE% are expanded.\r\n"
+        "; Leave blank to use this Windows account's configured Music known folder.\r\n"
+        "ExternalPath=%USERPROFILE%\\Music\r\n"
         "ExternalRecursive=true\r\n"
         "; The optional local folder is Music beside RedWolfRadio.dll.\r\n"
         "PluginLocalEnabled=false\r\n"
@@ -415,8 +426,12 @@ bool parseConfig(Config& config, bool& malformed, std::string& error) {
         }
     } else {
         config.externalUseDefault = false;
-        if (!toWide(value.c_str(), config.externalPath)) {
+        std::wstring configuredPath;
+        if (!toWide(value.c_str(), configuredPath)) {
             malformed = true; error = "Sources.ExternalPath is not valid UTF-8"; return false;
+        }
+        if (!expandEnvironmentPath(configuredPath, config.externalPath)) {
+            malformed = true; error = "Sources.ExternalPath environment expansion failed"; return false;
         }
     }
     if (!readIniValue("Originals", "Mode", "all", value)) {
