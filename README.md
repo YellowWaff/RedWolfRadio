@@ -1,5 +1,9 @@
 # Red Wolf Radio
 
+<p align="center">
+  <img src="assets/red-wolf-radio-primary-logo-transparent.png" alt="Red Wolf Radio logo" width="520">
+</p>
+
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
 Version 0.8.1 is the first tested baseline. It is pinned to Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable and engine binaries before installing its hooks.
@@ -70,10 +74,17 @@ The Windows build uses an LLVM MinGW x86-64 toolchain and PowerShell:
 
 ```powershell
 .\build.ps1 -Toolchain C:\path\to\llvm-mingw
+.\package-release.ps1
 ```
 
-The build runs converter fixtures, forwarding and scheduler tests, checks DLL exports/imports, and prints SHA-256 hashes. Miniaudio 0.11.25 is vendored for offline decoding and conversion only; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+The build runs converter fixtures, forwarding and scheduler tests, checks DLL exports/imports, and prints SHA-256 hashes. The packaging script creates both a conventional release archive and a Workshop-ready archive containing the approved preview artwork. Miniaudio 0.11.25 is vendored for offline decoding and conversion only; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Launcher and Workshop artwork
+
+Republic Mod Loader 1.0.1 gets a plugin's detail image from its parent Steam Workshop item. It does not define a per-plugin image field. A standalone Red Wolf Radio Workshop package therefore places [`previewimage.png`](previewimage.png) at the item root and the plugin files in a `plugin` directory. RML discovers that layout and displays the Workshop preview for the plugin.
+
+A local DLL copied directly into RML's own plugin directory has no separate Workshop identity, so RML cannot display Red Wolf Radio's image there. Do not replace Republic Mod Loader's own preview image. See [DISTRIBUTION.md](DISTRIBUTION.md) for the verified package layout and source references.
 
 ## License
 
-Red Wolf Radio's source is licensed under GPL-3.0-only. Vendored dependencies retain their own licenses.
+Red Wolf Radio's source is licensed under GPL-3.0-only. Vendored dependencies retain their own licenses. The logo and launcher artwork have separate terms documented in [assets/README.md](assets/README.md).

@@ -2,7 +2,13 @@
 /build/
 /evidence/
 /dist/
-/assets/
+/assets/*
+!/assets/README.md
+!/assets/red-wolf-radio-primary-logo-transparent.png
+!/assets/red-wolf-radio-launcher-icon-64.png
+!/assets/red-wolf-radio-launcher-icon-128.png
+!/assets/red-wolf-radio-launcher-icon-256.png
+!/assets/red-wolf-radio-launcher-icon-512.png
 *.log
 *.tsv
 

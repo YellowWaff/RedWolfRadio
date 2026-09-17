@@ -8,6 +8,8 @@
 - Add a configurable bounded derived-audio cache, defaulting to 4096 MiB.
 - Prepare a configurable upcoming playlist window, defaulting to five tracks, instead of converting the complete library at startup.
 - Evict least-recently-used cache files while protecting the active and upcoming tracks.
+- Add the approved Red Wolf Radio logo and launcher artwork.
+- Add reproducible standalone and Workshop package generation, including the RML-discoverable `previewimage.png`.
 
 ## 0.8.1 - 2026-09-16
 
