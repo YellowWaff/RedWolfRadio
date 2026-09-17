@@ -1429,7 +1429,6 @@ extern "C" __declspec(dllexport) int TsmPluginStart() {
         manager.runtimeEnabled = catalogOk && !manager.catalog.empty() &&
             (nativeTrackCount > 0 || manager.config.originalsMode == OriginalsMode::None);
         if (manager.runtimeEnabled) {
-            rebuildPlayBag();
             if (!startPrefetchWorker()) {
                 host->log("[RedWolfRadio] Background prefetch worker unavailable; startup-prepared tracks remain usable.");
             } else {
