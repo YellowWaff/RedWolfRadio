@@ -124,7 +124,7 @@ static void testHotkeyConfigIsolation() {
     iniValues["Hotkeys.Next"] = "Ctrl++Right";
     parseHotkeyConfig(config);
     require(config.hotkeysEnabled && config.hotkeys[0].key == 0 &&
-        config.hotkeys[1].key == VK_LEFT && config.hotkeys[2].key == VK_SPACE,
+        config.hotkeys[1].key == VK_LEFT && config.hotkeys[2].key == VK_DOWN,
         "bad binding disables only its own shortcut");
     require(config.hotkeyWarnings.size() == 1, "bad binding produces a warning");
     require(config.originalsMode == OriginalsMode::Selected &&
@@ -135,7 +135,7 @@ static void testHotkeyConfigIsolation() {
     iniValues["Hotkeys.Previous"] = "n + Control";
     parseHotkeyConfig(config);
     require(config.hotkeys[0].key == 0 && config.hotkeys[1].key == 0 &&
-        config.hotkeys[2].key == VK_SPACE && config.hotkeyWarnings.size() == 1,
+        config.hotkeys[2].key == VK_DOWN && config.hotkeyWarnings.size() == 1,
         "equivalent duplicate bindings both disable without affecting play/pause");
     iniValues["Hotkeys.Next"] = "None";
     iniValues["Hotkeys.Previous"] = "None";

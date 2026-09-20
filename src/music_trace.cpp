@@ -47,7 +47,7 @@ struct Config {
     std::array<rwr::Hotkey, 3> hotkeys{{
         {VK_RIGHT, rwr::HotkeyCtrl | rwr::HotkeyShift},
         {VK_LEFT, rwr::HotkeyCtrl | rwr::HotkeyShift},
-        {VK_SPACE, rwr::HotkeyCtrl | rwr::HotkeyShift}}};
+        {VK_DOWN, rwr::HotkeyCtrl | rwr::HotkeyShift}}};
     std::vector<std::string> hotkeyWarnings;
     OriginalsMode originalsMode = OriginalsMode::All;
     std::vector<std::string> excludedIds;
@@ -418,7 +418,7 @@ bool createDefaultIniIfMissing() {
         "Next=Ctrl+Shift+Right\r\n"
         "; One press restarts; further presses within one second go backward.\r\n"
         "Previous=Ctrl+Shift+Left\r\n"
-        "PlayPause=Ctrl+Shift+Space\r\n\r\n"
+        "PlayPause=Ctrl+Shift+Down\r\n\r\n"
         "[Originals]\r\n"
         "; Mode may be all, selected, or none.\r\n"
         "Mode=all\r\n"
@@ -467,7 +467,7 @@ void parseHotkeyConfig(Config& config) {
         config.hotkeyWarnings.push_back("Hotkeys.Enabled must be true or false; shortcuts disabled.");
     }
     const char* keys[] = {"Next", "Previous", "PlayPause"};
-    const char* defaults[] = {"Ctrl+Shift+Right", "Ctrl+Shift+Left", "Ctrl+Shift+Space"};
+    const char* defaults[] = {"Ctrl+Shift+Right", "Ctrl+Shift+Left", "Ctrl+Shift+Down"};
     for (size_t i = 0; i < config.hotkeys.size(); ++i) {
         std::string error;
         if (!readIniValue("Hotkeys", keys[i], defaults[i], value) ||

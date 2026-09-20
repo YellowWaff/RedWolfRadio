@@ -76,7 +76,7 @@ int main() {
         "disabled binding resets output and error");
 
     const std::array<Hotkey, 3> bindings = {
-        parse("Ctrl+Shift+Right"), parse("Ctrl+Shift+Left"), parse("Ctrl+Shift+Space")
+        parse("Ctrl+Shift+Right"), parse("Ctrl+Shift+Left"), parse("Ctrl+Shift+Down")
     };
     const auto released = keys({});
     const auto modifiers = keys({0x11, 0x10});
@@ -98,7 +98,7 @@ int main() {
     require(tracker.sample(true, keys({0xa3, 0xa1, 0x25}), bindings) == MusicAction::Previous,
         "right-hand physical modifiers work");
     tracker.sample(true, released, bindings);
-    require(tracker.sample(true, keys({0xa2, 0xa0, 0x20}), bindings) == MusicAction::PlayPause,
+    require(tracker.sample(true, keys({0xa2, 0xa0, 0x28}), bindings) == MusicAction::PlayPause,
         "left-hand physical modifiers work");
 
     tracker.sample(true, released, bindings);

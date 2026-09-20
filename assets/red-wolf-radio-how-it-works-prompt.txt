@@ -1,0 +1,72 @@
+Red Wolf Radio Workshop explainer
+Tool: built-in image_gen
+Supporting asset: assets/red-wolf-radio-primary-logo-transparent.png
+
+Initial generation prompt:
+Use case: infographic-diagram / compositing.
+Create a polished, genuinely useful landscape Steam Workshop explainer poster for the Red Wolf Radio music mod. Aim for 2048x1365 or another high-resolution 3:2 landscape canvas, suitable for a JPEG. Input image 1 is an approved supporting brand asset: use the existing Red Wolf Radio wolf-with-headphones-and-grey-ushanka logo, preserving Sangie's androgynous male red-wolf identity, golden eyes, hair, hat, headphones, face, and badge design. Integrate a modest-sized faithful copy of this logo in the header; do not turn it into a different character. The checkerboard is transparency indication, not artwork: do not reproduce a checkerboard.
+
+Art direction: clear modern editorial infographic with warm cream background, deep charcoal text, muted brick-red headers and ochre details taken from the supplied logo. Subtle retro radio / Soviet industrial poster influence, minimal paper texture, crisp flat pictograms (folder, launcher/computer, speaker), restrained radio-wave accents. No photos or fabricated game screenshots. Professional, friendly, highly readable at Steam gallery size. Plenty of padding, strong alignment. No tiny dense paragraphs. All text dark on light or cream on dark red. No extra claims, no URLs, no username paths, no additional brand logos.
+
+Layout: clean header with the logo occupying at most one fifth of the canvas width, large title and subtitle. Beneath it three sequential equal-width cards 1,2,3 with arrows between them. The lower third holds a roomy DEFAULT SHORTCUTS block and a CACHE DEFAULTS block. A minimal footer. Use every text item below verbatim, accurately spelled, without duplicated/missing lines. Balanced multiline wrapping is allowed. Use a legible bold condensed heading font and clean sans-serif body; render keyboard shortcuts and the path particularly clearly.
+
+Exact copy:
+Header:
+"RED WOLF RADIO"
+"YOUR MUSIC. YOUR REPUBLIC."
+"For Workers & Resources: Soviet Republic"
+
+Card 1:
+"1  ADD YOUR MUSIC"
+"WAV • MP3 • FLAC"
+"Use %USERPROFILE%\Music"
+"or choose a folder in RedWolfRadio.ini."
+"Folders are scanned on every launch."
+
+Card 2:
+"2  ENABLE & LAUNCH"
+"Enable Red Wolf Radio in"
+"Republic Mod Loader."
+"Launch the game through RML."
+"Tracks are prepared as needed."
+
+Card 3:
+"3  PLAY YOUR WAY"
+"Shuffled, repeating playlists."
+"Uses the game's music volume."
+"Keep all, some, or no original tracks."
+"Original game files stay unchanged."
+
+Lower left:
+"DEFAULT SHORTCUTS"
+"Ctrl + Shift + →   Next"
+"Ctrl + Shift + ←   Restart / Previous"
+"Ctrl + Shift + Space   Pause / Resume"
+"Previous: press again within one second to go back."
+"Active during gameplay while the game is focused."
+
+Lower right:
+"CACHE DEFAULTS"
+"5 upcoming + 3 previous tracks kept ready"
+"4 GiB soft limit"
+"Protected tracks may exceed the limit."
+
+Footer:
+"Folders, cache and shortcuts are configurable in RedWolfRadio.ini."
+"No music files included."
+
+Priority: exact accurate readable instructional text and clean spacious composition. Do not suggest that the full collection is converted at launch, that 4 GiB is a strict cap, or that previous navigation is limited to 3 tracks. Do not add any text about external XWMA or public release. Fully opaque finished poster.
+
+Targeted text correction:
+Make one precise text correction to this finished Red Wolf Radio infographic. In the left "ADD YOUR MUSIC" card, replace the entire line that starts "Use %USERPROFILE%" with exactly "Use your Windows Music folder". This avoids an incorrectly doubled path separator. Keep the next lines "or choose a folder in" and "RedWolfRadio.ini." intact. Preserve absolutely everything else: overall 1536x1024 landscape size, all other text and spelling, logo/character, typography, proportions, icons, colors, texture, border, and layout. Refit only this one replacement line neatly within the same card; it may be a little smaller if needed. Output the same complete opaque poster, with no cropping and no other changes.
+
+User-requested shortcut correction:
+undefined
+
+User-requested keycap correction:
+Precise layout correction only in DEFAULT SHORTCUTS on this finished infographic. The DOWN arrow in the third shortcut row is incorrectly sitting on a wide spacebar-shaped keycap. Replace that third row final keycap with a NORMAL SMALL ARROW KEYCAP, EXACTLY THE SAME WIDTH, HEIGHT, CORNER RADIUS, STYLE, and LEFT POSITION as the Right-arrow keycap in row one and Left-arrow keycap in row two. Center the down arrow "↓" within the new small key. All three shortcut rows must use an identical Ctrl key, identical Shift key, identical small arrow key, identical plus-sign columns, and equal row spacing. Align the action labels Next, Restart / Previous, and Pause / Resume to the same left x-position just after the arrow-key column. Do not use any wide spacebar shape. Preserve all text verbatim, including arrow directions → in row 1, ← in row 2, ↓ in row 3. Keep everything outside this tiny keycap/alignment adjustment EXACTLY unchanged: all other infographic panels, logo and character, title, text, colors, textures, dimensions 1536x1024, and margins. No cropping.
+
+User-requested action-label alignment:
+undefined
+
+Delivery: final generated poster converted to JPG for the user's 2,000,000-byte upload limit. No compositional edits during conversion.

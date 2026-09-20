@@ -42,9 +42,11 @@ Keep the existing defaults: upcoming five tracks, three protected previous track
 
 The user's September 20 report accepts the targeted configuration checks. Actual Workshop update preservation remains open and must be verified during step 4; the report does not establish Steam update behavior.
 
+The user subsequently requested `Ctrl+Shift+Down` as the default Play/Pause binding because Space also paused the game. The rebuilt candidate and saved settings include this adjustment, and automated suites pass. Confirm the revised binding in gameplay during the Workshop test.
+
 ## 4. Test an actual Workshop installation before public visibility
 
-The user created Workshop item `3805202523` through the game's authoring workflow on September 20, 2026. Its generated metadata identifies Red Wolf Radio as a Script item. The clean payload is staged and independently checked, and the in-game editor visibly shows **Unpublished**. Upload of the staged DLL, Steam-side visibility, the required-item relationship, subscription, and update tests remain pending.
+The user created Workshop item `3805202523` through the game's authoring workflow on September 20, 2026. Its generated metadata identifies Red Wolf Radio as a Script item. The clean payload is staged and independently checked, and the in-game editor visibly shows **Unpublished**. The signed-in Steam page now shows **Hidden**, an updated size of 4.988 MB, and two change notes. A downloaded DLL hash check, the required-item relationship, subscription, and update tests remain pending.
 
 - [ ] Complete project metadata and prepare the listing description, RML dependency, supported versions, and approved preview.
 - [ ] Upload with non-public visibility for testing and install the item through Steam. Confirm the authoring workflow and visibility before submission.

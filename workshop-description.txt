@@ -6,7 +6,7 @@ Play WAV, MP3 and FLAC files from your Windows Music folder or a folder you choo
 
 Custom audio is prepared as WAV in a shared cache. Defaults prepare five upcoming tracks, protect three previous tracks, and use a 4 GiB soft cache limit. Protected tracks can temporarily exceed that limit. No personal songs are included.
 
-In a loaded republic, use Ctrl+Shift+Right for Next, Ctrl+Shift+Left for Previous, and Ctrl+Shift+Space for pause/resume. Previous first restarts the current song; a quick second press goes back. Controls work while paused. Up to 64 playback entries are remembered during a launch; three previous entries are protected in the cache by default. Shortcuts do not operate in the main menu.
+In a loaded republic, use Ctrl+Shift+Right for Next, Ctrl+Shift+Left for Previous, and Ctrl+Shift+Down for pause/resume. Previous first restarts the current song; a quick second press goes back. Controls work while paused. Up to 64 playback entries are remembered during a launch; three previous entries are protected in the cache by default. Shortcuts do not operate in the main menu.
 
 Edit plugin/RedWolfRadio.ini to change source folders, original-track exclusions, cache settings and keyboard shortcuts. Back up your INI outside the Workshop folder before updates or force-refresh. Settings preservation through Workshop updates is still being tested.
 

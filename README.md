@@ -66,7 +66,7 @@ HistoryTracks=3
 Enabled=true
 Next=Ctrl+Shift+Right
 Previous=Ctrl+Shift+Left
-PlayPause=Ctrl+Shift+Space
+PlayPause=Ctrl+Shift+Down
 
 [Originals]
 ; all, selected, or none
@@ -93,7 +93,7 @@ The shortcuts work while a republic is loaded and the game is the foreground app
 |---|---|
 | Ctrl+Shift+Right | Next track; after going backward, move forward through played history first. |
 | Ctrl+Shift+Left | Restart the current track. Press again within one second to go back one track; further quick presses go farther back. |
-| Ctrl+Shift+Space | Pause at the current audio position, or resume from it. |
+| Ctrl+Shift+Down | Pause at the current audio position, or resume from it. |
 
 Next and Previous preserve a user pause: a newly selected song waits silently at its beginning until resumed. One keypress triggers one action; holding the keys does not repeat. History holds up to 64 playback entries per launch, including tracks selected while paused; the most recent three previous tracks stay ready by default. Set `HistoryTracks` from 0 to 64 to change retention. Older unprotected tracks are prepared again if needed, while the current song continues. At the beginning of history, Previous restarts the oldest available track.
 

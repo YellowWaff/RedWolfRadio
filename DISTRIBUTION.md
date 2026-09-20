@@ -60,4 +60,4 @@ For the subscription test, disable all local Development copies in RML, subscrib
 
 Back up the user's current `plugin/RedWolfRadio.ini` outside both the Workshop download folder and authoring folder. With the game closed, restore that INI beside the downloaded DLL. Back up any optional local Music files too. The `%LOCALAPPDATA%/RedWolfRadio` cache is shared across installations and can remain in place. Repeat the backup/restore around updates or force-refresh until automatic preservation has been established.
 
-Item `3805202523` has a reviewed payload staged and an in-game **Unpublished** visibility check. See [VALIDATION.md](VALIDATION.md); this does not yet establish a successful DLL upload or subscribed installation.
+Item `3805202523` has a reviewed payload staged, an in-game **Unpublished** visibility check, and a signed-in Steam page showing **Hidden** with an uploaded size of 4.988 MB. The subsequent default Play/Pause change to `Ctrl+Shift+Down` is staged for another upload. See [VALIDATION.md](VALIDATION.md); a downloaded DLL hash and subscribed runtime test remain pending.

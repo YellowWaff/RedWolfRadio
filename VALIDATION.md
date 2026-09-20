@@ -71,3 +71,11 @@ This report does not establish settings preservation through a Steam Workshop up
 The user created item `3805202523` through the game. Its authoring folder was populated with 14 files from the rebuilt Workshop package while preserving the game-generated `workshopconfig.ini` byte-for-byte. An independent review checked every packaged file hash, the source-path candidate DLL hash, portable defaults, artwork and license notices. No personal audio, cache, traces, settings backups, or username paths were included in the payload. The user's current settings were backed up outside the authoring folder.
 
 RML showed both local Development projects disabled. WRSR launched normally for authoring inspection and displayed the new item as Script, approximately 4 MB, and **Unpublished**; the Edit Item screen retained that visibility and showed no validation error. No save/upload action was submitted in this check. The already-created Steam copy still contained only the initial metadata and preview when inspected. A successful upload of the DLL and a subscribed runtime test are not yet established.
+
+Later that day, after the user signed into the browser, the live Steam item page showed **Current visibility: Hidden**, file size **4.988 MB**, an update at 12:19 PM, and two change notes. This confirms the listing's non-public visibility and a larger uploaded item. The page still offered Subscribe, and the local download inspected at that time contained only the earlier metadata and preview. The new DLL has not yet been verified by downloading and hashing the subscribed payload.
+
+## Default Play/Pause shortcut adjustment — September 20, 2026
+
+The user reported that `Ctrl+Shift+Space` also paused WRSR and requested `Ctrl+Shift+Down` instead. The current default INI, generated INI, initial configuration and absent-key fallback now use the Down arrow. Next and Previous are unchanged, and existing INIs keep their configured value unless edited.
+
+The full build and existing automated suites passed, including the default-binding and music-control fixtures. The rebuilt `0.9.0-dev-source-paths` DLL has SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`. This differs from the earlier source-path candidate solely because the default shortcut was adjusted; new in-game user acceptance of the Down-arrow binding is pending.
