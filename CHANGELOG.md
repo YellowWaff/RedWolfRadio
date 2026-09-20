@@ -8,7 +8,8 @@
 - Pause and resume the XAudio2 source voice at its actual playback position; retain the game's music-volume behavior.
 - Disable invalid or duplicate hotkey bindings with a diagnostic while preserving music settings.
 - Prepare historical replay targets in the background and keep navigation on the game music thread.
-- Verify the bounded-cache build with a 65-minute gameplay run and a 10-minute restart, including 12 completed WAV tracks and cache reuse. The new shortcuts still require an in-game acceptance test.
+- Verify the bounded-cache build with a 65-minute gameplay run and a 10-minute restart, including 12 completed WAV tracks and cache reuse.
+- Verify Next, restart-first Previous, true pause/resume, and silent navigation while paused in the game. Rapid backward navigation reaches the start of the session history and then restarts that earliest entry.
 
 - Expand Windows environment variables in `Sources.ExternalPath`.
 - Write `%USERPROFILE%\Music` into newly created INI files without embedding a username.

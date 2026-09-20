@@ -104,6 +104,8 @@ The Windows build uses an LLVM MinGW x86-64 toolchain and PowerShell:
 
 The build runs converter fixtures, forwarding and scheduler tests, checks DLL exports/imports, and prints SHA-256 hashes. The packaging script creates both a conventional release archive and a Workshop-ready archive containing the approved preview artwork. Miniaudio 0.11.25 is vendored for offline decoding and conversion only; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
+See [VALIDATION.md](VALIDATION.md) for the recorded gameplay and shortcut tests, exact tested DLL hashes, and remaining coverage.
+
 ## Launcher and Workshop artwork
 
 Republic Mod Loader 1.0.1 gets a plugin's detail image from its parent Steam Workshop item. It does not define a per-plugin image field. A standalone Red Wolf Radio Workshop package therefore places [`previewimage.png`](previewimage.png) at the item root and the plugin files in a `plugin` directory. RML discovers that layout and displays the Workshop preview for the plugin.

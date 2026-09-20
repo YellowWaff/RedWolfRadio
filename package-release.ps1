@@ -39,6 +39,7 @@ $commonFiles = @(
     'LICENSE',
     'THIRD-PARTY-NOTICES.md',
     'DISTRIBUTION.md',
+    'VALIDATION.md',
     'previewimage.png'
 )
 
