@@ -69,4 +69,9 @@ Precise layout correction only in DEFAULT SHORTCUTS on this finished infographic
 User-requested action-label alignment:
 undefined
 
+User-requested black description text (v3):
+undefined
+
+Mode: imagegen edit of red-wolf-radio-how-it-works-source-v2.png.
+
 Delivery: final generated poster converted to JPG for the user's 2,000,000-byte upload limit. No compositional edits during conversion.
