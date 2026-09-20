@@ -21,9 +21,14 @@
 #include <vector>
 #include "audio_converter.h"
 #include "rml_compat.h"
+#include "music_hotkeys.h"
+#include "music_voice_control.h"
 
 namespace {
-constexpr char kVersion[] = "0.9.0-dev-bounded-cache";
+constexpr char kVersion[] = "0.9.0-dev-hotkeys";
+constexpr size_t kNoHistory = static_cast<size_t>(-1);
+constexpr size_t kHistoryLimit = 64;
+constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;
 enum class TrackFormat { Wav, Flac, Mp3, Xwma, Unknown };
 enum class TrackSource { External, PluginLocal, Original };
 enum class OriginalsMode { All, Selected, None };
@@ -37,6 +42,13 @@ struct Config {
     bool pluginLocalRecursive = true;
     uint64_t cacheMaxSizeMiB = 4096;
     uint32_t prefetchTracks = 5;
+    uint32_t historyTracks = 3;
+    bool hotkeysEnabled = true;
+    std::array<rwr::Hotkey, 3> hotkeys{{
+        {VK_RIGHT, rwr::HotkeyCtrl | rwr::HotkeyShift},
+        {VK_LEFT, rwr::HotkeyCtrl | rwr::HotkeyShift},
+        {VK_SPACE, rwr::HotkeyCtrl | rwr::HotkeyShift}}};
+    std::vector<std::string> hotkeyWarnings;
     OriginalsMode originalsMode = OriginalsMode::All;
     std::vector<std::string> excludedIds;
 };
@@ -72,6 +84,23 @@ struct ManagerState {
     std::wstring cacheDirectory;
     size_t bagCursor = 0;
     std::string lastPlayedId;
+    std::vector<size_t> history;
+    size_t historyCursor = kNoHistory;
+    size_t selectedHistoryCursor = kNoHistory;
+    bool historyRecorded = false;
+    bool navigationPending = false;
+    bool awaitingNavigationLoad = false;
+    size_t navigationHistoryCursor = kNoHistory;
+    bool userPaused = false;
+    bool voicePaused = false;
+    bool deferredPlay = false;
+    bool deferredPlayLoop = false;
+    int deferredPlayDelay = 0;
+    void* pausedVoice = nullptr;
+    rwr::MusicAction pendingNavigationAction = rwr::MusicAction::None;
+    ULONGLONG previousPressAt = 0;
+    size_t previousSequenceCursor = kNoHistory;
+    size_t previousBurstDepth = 0;
     unsigned converted = 0;
     unsigned cacheHits = 0;
     unsigned rejected = 0;
@@ -102,6 +131,8 @@ std::atomic<uint32_t> lastVolume{0xffffffffu};
 std::atomic<unsigned> pendingTrackRecovery{0}, activeTrackRecovery{0};
 std::atomic<long long> recoveryDeadlineTicks{0};
 std::atomic<bool> redirectReady{false};
+std::atomic<DWORD> musicThreadId{0};
+rwr::HotkeyTracker hotkeyTracker;
 volatile char* engineLoadingFlag = nullptr;
 LARGE_INTEGER epoch{}, frequency{};
 
@@ -372,7 +403,16 @@ bool createDefaultIniIfMissing() {
         "; Maximum derived-audio cache size in MiB. Zero means unlimited.\r\n"
         "MaxSizeMiB=4096\r\n"
         "; Number of upcoming playlist entries kept ready.\r\n"
-        "PrefetchTracks=5\r\n\r\n"
+        "PrefetchTracks=5\r\n"
+        "; Keep this many previous tracks ready in the same cache.\r\n"
+        "HistoryTracks=3\r\n\r\n"
+        "[Hotkeys]\r\n"
+        "; Active only while the game is focused. None disables a binding.\r\n"
+        "Enabled=true\r\n"
+        "Next=Ctrl+Shift+Right\r\n"
+        "; One press restarts; further presses within one second go backward.\r\n"
+        "Previous=Ctrl+Shift+Left\r\n"
+        "PlayPause=Ctrl+Shift+Space\r\n\r\n"
         "[Originals]\r\n"
         "; Mode may be all, selected, or none.\r\n"
         "Mode=all\r\n"
@@ -410,6 +450,38 @@ bool parseIniUnsigned(const std::string& raw, uint64_t minimum, uint64_t maximum
     if (!end || *end != 0 || parsed < minimum || parsed > maximum) return false;
     value = static_cast<uint64_t>(parsed);
     return true;
+}
+
+void parseHotkeyConfig(Config& config) {
+    config.hotkeyWarnings.clear();
+    std::string value;
+    if (!readIniValue("Hotkeys", "Enabled", "true", value) ||
+        !parseIniBool(value, config.hotkeysEnabled)) {
+        config.hotkeysEnabled = false;
+        config.hotkeyWarnings.push_back("Hotkeys.Enabled must be true or false; shortcuts disabled.");
+    }
+    const char* keys[] = {"Next", "Previous", "PlayPause"};
+    const char* defaults[] = {"Ctrl+Shift+Right", "Ctrl+Shift+Left", "Ctrl+Shift+Space"};
+    for (size_t i = 0; i < config.hotkeys.size(); ++i) {
+        std::string error;
+        if (!readIniValue("Hotkeys", keys[i], defaults[i], value) ||
+            !rwr::parseHotkey(value, config.hotkeys[i], error)) {
+            config.hotkeys[i] = {};
+            config.hotkeyWarnings.push_back(std::string("Hotkeys.") + keys[i] +
+                " disabled: " + error);
+        }
+    }
+    std::array<bool, 3> duplicate{};
+    for (size_t i = 0; i < config.hotkeys.size(); ++i) {
+        for (size_t j = i + 1; j < config.hotkeys.size(); ++j) {
+            if (config.hotkeys[i].key && rwr::sameHotkey(config.hotkeys[i], config.hotkeys[j])) {
+                duplicate[i] = duplicate[j] = true;
+                config.hotkeyWarnings.push_back(std::string("Duplicate Hotkeys.") + keys[i] +
+                    " and Hotkeys." + keys[j] + "; both bindings disabled.");
+            }
+        }
+    }
+    for (size_t i = 0; i < duplicate.size(); ++i) if (duplicate[i]) config.hotkeys[i] = {};
 }
 
 bool parseConfig(Config& config, bool& malformed, std::string& error) {
@@ -451,6 +523,12 @@ bool parseConfig(Config& config, bool& malformed, std::string& error) {
         malformed = true; error = "Cache.PrefetchTracks must be an integer from 1 through 256"; return false;
     }
     config.prefetchTracks = static_cast<uint32_t>(number);
+    if (!readIniValue("Cache", "HistoryTracks", "3", value) ||
+        !parseIniUnsigned(value, 0, kHistoryLimit, number)) {
+        malformed = true; error = "Cache.HistoryTracks must be an integer from 0 through 64"; return false;
+    }
+    config.historyTracks = static_cast<uint32_t>(number);
+    parseHotkeyConfig(config);
     if (!readIniValue("Sources", "ExternalPath", "", value)) {
         malformed = true; error = "could not read Sources.ExternalPath"; return false;
     }
@@ -552,6 +630,38 @@ void collectTrackRecursively(const std::wstring& root,
 
 void rebuildPlayBag();
 
+bool trackEligibleLocked(const Track& track) {
+    if (track.preparation == PreparationState::Rejected || manager.bannedTrackIds.count(track.id)) return false;
+    return track.source != TrackSource::Original ||
+        (manager.config.originalsMode != OriginalsMode::None &&
+         (manager.config.originalsMode != OriginalsMode::Selected ||
+          !manager.excludedOriginalIds.count(track.id)));
+}
+
+const Track* historyTrackLocked(size_t cursor) {
+    if (cursor >= manager.history.size() || manager.history[cursor] >= manager.catalog.size()) return nullptr;
+    const Track& track = manager.catalog[manager.history[cursor]];
+    return trackEligibleLocked(track) ? &track : nullptr;
+}
+
+size_t nextHistoryCursorLocked() {
+    if ((manager.navigationPending || manager.awaitingNavigationLoad) &&
+        manager.navigationHistoryCursor != kNoHistory) return manager.navigationHistoryCursor;
+    if (manager.historyCursor != kNoHistory && manager.historyCursor + 1 < manager.history.size())
+        return manager.historyCursor + 1;
+    return kNoHistory;
+}
+
+std::vector<size_t> protectedHistoryCursorsLocked() {
+    std::vector<size_t> positions;
+    const size_t retained = static_cast<size_t>(manager.config.historyTracks) + 1;
+    const size_t start = manager.history.size() > retained ? manager.history.size() - retained : 0;
+    for (size_t i = start; i < manager.history.size(); ++i) positions.push_back(i);
+    positions.push_back(manager.historyCursor);
+    positions.push_back(nextHistoryCursorLocked());
+    return positions;
+}
+
 std::wstring cachePathKey(std::wstring path) {
     trimPathTrail(path);
     toLower(path);
@@ -603,6 +713,11 @@ bool cachePathProtectedLocked(const std::wstring& key) {
                 !track.preparedWide.empty() && cachePathKey(track.preparedWide) == key) return true;
         }
     }
+    // Retain recent navigation targets, not the entire playback history.
+    for (size_t cursor : protectedHistoryCursorsLocked()) {
+        const Track* track = historyTrackLocked(cursor);
+        if (track && !track->preparedWide.empty() && cachePathKey(track->preparedWide) == key) return true;
+    }
     size_t considered = 0;
     for (size_t position = manager.bagCursor;
          position < manager.playBag.size() && considered < manager.config.prefetchTracks;
@@ -617,6 +732,10 @@ std::set<std::wstring> protectedCachePathsSnapshot() {
     std::set<std::wstring> protectedPaths;
     AcquireSRWLockExclusive(&stateLock);
     if (manager.trackSelectionDirty) rebuildPlayBag();
+    for (size_t cursor : protectedHistoryCursorsLocked()) {
+        const Track* track = historyTrackLocked(cursor);
+        if (track && !track->preparedWide.empty()) protectedPaths.insert(cachePathKey(track->preparedWide));
+    }
     if (!manager.activeTrackId.empty()) {
         for (const Track& track : manager.catalog) {
             if (track.id == manager.activeTrackId && !track.preparedWide.empty()) {
@@ -747,13 +866,7 @@ void rebuildPlayBag() {
     manager.playBag.clear();
     for (size_t i = 0; i < manager.catalog.size(); ++i) {
         const Track& track = manager.catalog[i];
-        if (track.preparation == PreparationState::Rejected) continue;
-        if (manager.bannedTrackIds.count(track.id)) continue;
-        if (track.source == TrackSource::Original) {
-            if (manager.config.originalsMode == OriginalsMode::None) continue;
-            if (manager.config.originalsMode == OriginalsMode::Selected &&
-                manager.excludedOriginalIds.find(track.id) != manager.excludedOriginalIds.end()) continue;
-        }
+        if (!trackEligibleLocked(track)) continue;
         manager.playBag.push_back(i);
     }
     if (!manager.playBag.empty()) {
@@ -770,11 +883,9 @@ void rebuildPlayBag() {
     manager.trackSelectionDirty = false;
 }
 
-const Track* pickTrackLocked() {
-    if (manager.catalog.empty()) return nullptr;
+void ensurePlayBagLocked() {
     if (manager.trackSelectionDirty) rebuildPlayBag();
-    if (manager.playBag.empty()) return nullptr;
-    if (manager.bagCursor >= manager.playBag.size()) {
+    if (!manager.playBag.empty() && manager.bagCursor >= manager.playBag.size()) {
         std::random_device rd;
         std::mt19937 rng(rd());
         std::shuffle(manager.playBag.begin(), manager.playBag.end(), rng);
@@ -785,23 +896,73 @@ const Track* pickTrackLocked() {
         }
         manager.bagCursor = 0;
     }
+}
+
+const Track* activateTrackLocked(size_t index, size_t historyCursor = kNoHistory) {
+    const Track& track = manager.catalog[index];
+    manager.activeTrackId = track.id;
+    manager.activeTrackSource = track.source;
+    manager.activeTrackPending = true;
+    manager.activeTrackPlaying = false;
+    manager.activeLoadStart = 0;
+    manager.selectedHistoryCursor = historyCursor;
+    manager.historyRecorded = false;
+    manager.voicePaused = false;
+    manager.pausedVoice = nullptr;
+    manager.deferredPlay = false;
+    manager.navigationPending = manager.awaitingNavigationLoad = false;
+    manager.navigationHistoryCursor = kNoHistory;
+    return &track;
+}
+
+void recordPlayingHistoryLocked() {
+    if (manager.historyRecorded || manager.activeTrackId.empty()) return;
+    if (manager.selectedHistoryCursor < manager.history.size() &&
+        historyTrackLocked(manager.selectedHistoryCursor) &&
+        historyTrackLocked(manager.selectedHistoryCursor)->id == manager.activeTrackId) {
+        manager.historyCursor = manager.selectedHistoryCursor;
+        manager.historyRecorded = true;
+        return;
+    }
+    for (size_t index = 0; index < manager.catalog.size(); ++index) {
+        if (manager.catalog[index].id != manager.activeTrackId) continue;
+        manager.history.push_back(index);
+        if (manager.history.size() > kHistoryLimit) manager.history.erase(manager.history.begin());
+        manager.historyCursor = manager.history.size() - 1;
+        manager.historyRecorded = true;
+        return;
+    }
+}
+
+const Track* pickTrackLocked() {
+    if (manager.catalog.empty()) return nullptr;
+    const size_t replay = nextHistoryCursorLocked();
+    if (replay != kNoHistory) {
+        const Track* historical = historyTrackLocked(replay);
+        if (historical) {
+            if (!historical->nativePlayable) return nullptr;
+            return activateTrackLocked(manager.history[replay], replay);
+        }
+        // An unavailable/failed history entry must not trap the scheduler.
+        if (replay < manager.history.size()) manager.historyCursor = replay;
+        manager.navigationHistoryCursor = kNoHistory;
+    }
+    ensurePlayBagLocked();
+    if (manager.playBag.empty()) return nullptr;
     size_t readyPosition = manager.bagCursor;
     while (readyPosition < manager.playBag.size() &&
            !manager.catalog[manager.playBag[readyPosition]].nativePlayable) ++readyPosition;
     if (readyPosition >= manager.playBag.size()) return nullptr;
     if (readyPosition != manager.bagCursor)
         std::swap(manager.playBag[readyPosition], manager.playBag[manager.bagCursor]);
-    const Track& track = manager.catalog[manager.playBag[manager.bagCursor++]];
-    manager.activeTrackId = track.id;
-    manager.activeTrackSource = track.source;
-    manager.activeTrackPending = true;
-    manager.activeTrackPlaying = false;
-    manager.activeLoadStart = 0;
-    return &track;
+    return activateTrackLocked(manager.playBag[manager.bagCursor++]);
 }
 
 size_t nextPrefetchCandidateLocked() {
-    if (manager.trackSelectionDirty) rebuildPlayBag();
+    const size_t replay = nextHistoryCursorLocked();
+    const Track* historical = historyTrackLocked(replay);
+    if (historical && historical->preparation == PreparationState::Pending) return manager.history[replay];
+    ensurePlayBagLocked();
     size_t considered = 0;
     for (size_t position = manager.bagCursor;
          position < manager.playBag.size() && considered < manager.config.prefetchTracks;
@@ -920,6 +1081,18 @@ void rebuildCatalog() {
     manager.bagCursor = 0;
     manager.activeTrackId.clear();
     manager.lastPlayedId.clear();
+    manager.history.clear();
+    manager.historyCursor = manager.selectedHistoryCursor = kNoHistory;
+    manager.historyRecorded = false;
+    manager.navigationPending = manager.awaitingNavigationLoad = false;
+    manager.navigationHistoryCursor = kNoHistory;
+    manager.userPaused = manager.voicePaused = false;
+    manager.deferredPlay = false;
+    manager.pausedVoice = nullptr;
+    manager.pendingNavigationAction = rwr::MusicAction::None;
+    manager.previousPressAt = 0;
+    manager.previousSequenceCursor = kNoHistory;
+    manager.previousBurstDepth = 0;
     rebuildPlayBag();
     prepareInitialPrefetchWindow();
 }
@@ -937,9 +1110,16 @@ void logCatalogStats() {
     host->log("[RedWolfRadio] Catalog prepared: %u tracks total, %u native-capable. Originals mode: %s. Config malformed: %s",
         total, native, mode, manager.configMalformed ? "yes" : "no");
     host->log("[RedWolfRadio] Excluded originals: %zu", manager.excludedOriginalIds.size());
-    host->log("[RedWolfRadio] Cache: MaxSizeMiB=%llu, PrefetchTracks=%u; startup prepared %u converted, %u cache hits, %u rejected.",
-        static_cast<unsigned long long>(manager.config.cacheMaxSizeMiB), manager.config.prefetchTracks,
+    host->log("[RedWolfRadio] Cache: MaxSizeMiB=%llu, PrefetchTracks=%u, HistoryTracks=%u; startup prepared %u converted, %u cache hits, %u rejected.",
+        static_cast<unsigned long long>(manager.config.cacheMaxSizeMiB), manager.config.prefetchTracks, manager.config.historyTracks,
         manager.converted, manager.cacheHits, manager.rejected);
+    for (const std::string& warning : manager.config.hotkeyWarnings)
+        host->log("[RedWolfRadio] %s", warning.c_str());
+    host->log("[RedWolfRadio] Gameplay hotkeys: %s; bindings Next=%u/%u, Previous=%u/%u, PlayPause=%u/%u (key/modifiers).",
+        manager.config.hotkeysEnabled ? "enabled" : "disabled",
+        manager.config.hotkeys[0].key, manager.config.hotkeys[0].modifiers,
+        manager.config.hotkeys[1].key, manager.config.hotkeys[1].modifiers,
+        manager.config.hotkeys[2].key, manager.config.hotkeys[2].modifiers);
 }
 
 bool initializeCatalogFromConfig() {
@@ -998,6 +1178,14 @@ bool shouldEnforceNoOriginalsMode() {
 }
 
 void setRuntimeTrackFailureLocked(const Track& track) {
+    if (manager.selectedHistoryCursor < manager.history.size()) {
+        // A failed replay (including an original XWMA) must not remain the next
+        // historical entry forever. It was attempted even though never played.
+        manager.historyCursor = manager.selectedHistoryCursor;
+        manager.selectedHistoryCursor = kNoHistory;
+        manager.navigationPending = manager.awaitingNavigationLoad = false;
+        manager.navigationHistoryCursor = kNoHistory;
+    }
     if (track.source != TrackSource::Original) {
         manager.bannedTrackIds.insert(track.id);
         manager.trackSelectionDirty = true;
@@ -1074,6 +1262,17 @@ void onStop() {
     manager.activeTrackPending = false;
     manager.activeTrackPlaying = false;
     manager.activeTrackId.clear();
+    manager.voicePaused = false;
+    manager.pausedVoice = nullptr;
+    manager.deferredPlay = false;
+    if (!manager.awaitingNavigationLoad) {
+        manager.userPaused = false;
+        manager.navigationPending = false;
+        manager.navigationHistoryCursor = kNoHistory;
+        manager.previousPressAt = 0;
+        manager.previousSequenceCursor = kNoHistory;
+        manager.previousBurstDepth = 0;
+    }
     ReleaseSRWLockExclusive(&stateLock);
     Event e = begin(Stop, __builtin_return_address(0)); enqueue(e);
     reinterpret_cast<VoidFn>(originals[Stop])();
@@ -1096,6 +1295,7 @@ void onLoad(char* path) {
     char* forwarded = path;
     const Track* selected = nullptr;
     if (manager.runtimeEnabled && redirectReady.load(std::memory_order_relaxed)) {
+        musicThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
         AcquireSRWLockExclusive(&stateLock);
         if (selectTrackForReplacement(selected)) {
             manager.activeTrackSource = selected->source;
@@ -1135,7 +1335,25 @@ void onLoad(char* path) {
     e.phase = 'E'; enqueue(e);
 }
 void onPlay(bool arg0, int arg1) {
+    const DWORD saved = GetLastError();
     Event e = begin(Play, __builtin_return_address(0)); e.arg0 = arg0; e.arg1 = arg1; enqueue(e);
+    if (manager.runtimeEnabled) {
+        AcquireSRWLockExclusive(&stateLock);
+        if (manager.userPaused && !manager.activeTrackId.empty()) {
+            manager.deferredPlay = true;
+            manager.deferredPlayLoop = arg0;
+            manager.deferredPlayDelay = arg1;
+            // A selected song is part of navigation history even when the user
+            // has elected to keep it paused at the beginning.
+            recordPlayingHistoryLocked();
+            ReleaseSRWLockExclusive(&stateLock);
+            e.phase = 'D'; enqueue(e);
+            SetLastError(saved);
+            return;
+        }
+        ReleaseSRWLockExclusive(&stateLock);
+    }
+    SetLastError(saved);
     reinterpret_cast<PlayFn>(originals[Play])(arg0, arg1);
     const unsigned recovery = pendingTrackRecovery.exchange(0, std::memory_order_relaxed);
     if (recovery) {
@@ -1153,10 +1371,176 @@ void onVolume(float value) {
     reinterpret_cast<VolumeFn>(originals[Volume])(value);
     if (changed) { e.phase = 'E'; enqueue(e); }
 }
+
+rwr::MusicAction pollMusicHotkey() {
+    // Only the thread that loads music may operate on the engine voice. No
+    // process-wide hotkey registration or engine calls from worker threads.
+    if (!manager.runtimeEnabled || !manager.config.hotkeysEnabled ||
+        musicThreadId.load(std::memory_order_relaxed) != GetCurrentThreadId()) return rwr::MusicAction::None;
+    static ULONGLONG lastPoll = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (lastPoll && now - lastPoll < 15) return rwr::MusicAction::None;
+    if (!lastPoll || now - lastPoll > 500) hotkeyTracker = {};
+    lastPoll = now;
+    const HWND foreground = GetForegroundWindow();
+    DWORD foregroundPid = 0;
+    if (foreground) GetWindowThreadProcessId(foreground, &foregroundPid);
+    const bool focused = foreground && foregroundPid == GetCurrentProcessId();
+    std::array<bool, 256> down{};
+    if (focused) {
+        for (unsigned key : {VK_CONTROL, VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN})
+            down[key] = (GetAsyncKeyState(static_cast<int>(key)) & 0x8000) != 0;
+        for (const rwr::Hotkey& binding : manager.config.hotkeys)
+            if (binding.key && binding.key < down.size())
+                down[binding.key] = (GetAsyncKeyState(static_cast<int>(binding.key)) & 0x8000) != 0;
+    }
+    return hotkeyTracker.sample(focused, down, manager.config.hotkeys);
+}
+
+void logMusicControl(rwr::MusicAction action, int outcome, const char* detail = nullptr) {
+    Event event = begin(action == rwr::MusicAction::PlayPause ? Pause : Stop, nullptr);
+    event.phase = 'H';
+    event.arg0 = static_cast<int>(action);
+    event.arg1 = outcome;
+    enqueue(event, detail);
+}
+
+int processMusicControls(rwr::MusicAction action, int status, bool loading, ULONGLONG now = GetTickCount64()) {
+    bool stop = false;
+    bool changePause = false;
+    bool desiredPause = false;
+    void* expectedVoice = nullptr;
+    bool prefetch = false;
+    bool startDeferred = false;
+    bool deferredLoop = false;
+    int deferredDelay = 0;
+    rwr::MusicAction navigation = rwr::MusicAction::None;
+    AcquireSRWLockExclusive(&stateLock);
+    if (action == rwr::MusicAction::PlayPause) {
+        if (!manager.activeTrackId.empty() || manager.awaitingNavigationLoad) {
+            manager.userPaused = !manager.userPaused;
+            logMusicControl(action, 2, manager.userPaused ? "pause requested" : "resume requested");
+        } else logMusicControl(action, 0, "no active track");
+    } else if (action != rwr::MusicAction::None) {
+        manager.navigationPending = !manager.awaitingNavigationLoad;
+        manager.pendingNavigationAction = action;
+        manager.navigationHistoryCursor = kNoHistory;
+        if (action == rwr::MusicAction::Previous) {
+            if (manager.previousPressAt && now - manager.previousPressAt <= kPreviousRepeatMilliseconds) {
+                manager.previousBurstDepth = std::min(manager.previousBurstDepth + 1, kHistoryLimit);
+            } else {
+                manager.previousSequenceCursor = manager.activeTrackPending && !manager.historyRecorded ?
+                    kNoHistory : manager.historyCursor;
+                manager.previousBurstDepth = 0;
+            }
+            manager.previousPressAt = now;
+            if (manager.previousSequenceCursor != kNoHistory)
+                manager.navigationHistoryCursor = manager.previousSequenceCursor > manager.previousBurstDepth ?
+                    manager.previousSequenceCursor - manager.previousBurstDepth : 0;
+        } else {
+            manager.previousPressAt = 0;
+            manager.previousSequenceCursor = kNoHistory;
+            manager.previousBurstDepth = 0;
+            if (manager.historyCursor != kNoHistory && manager.historyCursor + 1 < manager.history.size())
+                manager.navigationHistoryCursor = manager.historyCursor + 1;
+        }
+        prefetch = true;
+    }
+    if (manager.navigationPending && !loading) {
+        navigation = manager.pendingNavigationAction;
+        size_t replay = kNoHistory;
+        if (navigation == rwr::MusicAction::Previous) {
+            if (manager.previousSequenceCursor == kNoHistory) manager.previousSequenceCursor = manager.historyCursor;
+            if (manager.previousSequenceCursor != kNoHistory) {
+                replay = manager.previousSequenceCursor > manager.previousBurstDepth ?
+                    manager.previousSequenceCursor - manager.previousBurstDepth : 0;
+            } else {
+                manager.navigationPending = false;
+                logMusicControl(navigation, 0, "no playback history");
+            }
+        } else if (manager.historyCursor != kNoHistory && manager.historyCursor + 1 < manager.history.size()) {
+            replay = manager.historyCursor + 1;
+        }
+        manager.navigationHistoryCursor = replay;
+        if (manager.navigationPending) {
+            if (replay != kNoHistory) {
+                const Track* target = historyTrackLocked(replay);
+                if (!target) {
+                    manager.navigationPending = false;
+                    logMusicControl(navigation, 0, "history track unavailable");
+                } else stop = target->nativePlayable;
+            } else {
+                ensurePlayBagLocked();
+                for (size_t i = manager.bagCursor; i < manager.playBag.size(); ++i)
+                    if (manager.catalog[manager.playBag[i]].nativePlayable) { stop = true; break; }
+                if (manager.playBag.empty()) {
+                    manager.navigationPending = false;
+                    logMusicControl(navigation, 0, "no eligible tracks");
+                }
+            }
+            prefetch = true;
+        }
+        if (stop) {
+            manager.navigationPending = false;
+            manager.awaitingNavigationLoad = true;
+            manager.activeTrackId.clear();
+            manager.activeTrackPending = manager.activeTrackPlaying = false;
+            manager.voicePaused = false;
+            manager.pausedVoice = nullptr;
+            manager.deferredPlay = false;
+            manager.silenceUntil = 0;
+        }
+    }
+    if (!stop && !loading && manager.deferredPlay && !manager.userPaused) {
+        startDeferred = true;
+        deferredLoop = manager.deferredPlayLoop;
+        deferredDelay = manager.deferredPlayDelay;
+        manager.deferredPlay = false;
+    }
+    if (!stop && !startDeferred && !manager.deferredPlay && !loading && status && !manager.activeTrackId.empty() &&
+        manager.userPaused != manager.voicePaused) {
+        changePause = true;
+        desiredPause = manager.userPaused;
+        expectedVoice = manager.pausedVoice;
+    }
+    ReleaseSRWLockExclusive(&stateLock);
+
+    if (stop) {
+        pendingTrackRecovery.store(0, std::memory_order_relaxed);
+        activeTrackRecovery.store(0, std::memory_order_relaxed);
+        recoveryDeadlineTicks.store(0, std::memory_order_relaxed);
+        reinterpret_cast<VoidFn>(originals[Stop])();
+        logMusicControl(navigation, 1, "advance requested from game scheduler");
+        status = 0;
+    } else if (startDeferred) {
+        onPlay(deferredLoop, deferredDelay);
+        logMusicControl(rwr::MusicAction::PlayPause, 1, "started selected paused track");
+        status = 1;
+    } else if (changePause) {
+        const auto result = rwr::setMusicVoicePaused(static_cast<HMODULE>(host->engineModule),
+            engineLoadingFlag, desiredPause, expectedVoice);
+        AcquireSRWLockExclusive(&stateLock);
+        if (result.status == rwr::VoiceControlStatus::Applied) {
+            manager.voicePaused = desiredPause;
+            manager.pausedVoice = desiredPause ? result.voice : nullptr;
+            logMusicControl(rwr::MusicAction::PlayPause, 1, desiredPause ? "paused at current position" : "resumed");
+        } else if (result.status != rwr::VoiceControlStatus::Loading) {
+            manager.userPaused = manager.voicePaused;
+            logMusicControl(rwr::MusicAction::PlayPause, -1, "voice control unavailable");
+        }
+        ReleaseSRWLockExclusive(&stateLock);
+    }
+    if (prefetch) requestPrefetch();
+    return status;
+}
+
 int onPlaying() {
     Event e = begin(Playing, __builtin_return_address(0));
     int result = reinterpret_cast<PlayingFn>(originals[Playing])();
     const DWORD statusError = GetLastError();
+    const bool controlThread = manager.runtimeEnabled &&
+        musicThreadId.load(std::memory_order_relaxed) == GetCurrentThreadId();
+    const rwr::MusicAction action = controlThread ? pollMusicHotkey() : rwr::MusicAction::None;
     const ULONGLONG nowMs = GetTickCount64();
     bool holdNoOriginalsHold = false;
     if (manager.runtimeEnabled && shouldEnforceNoOriginalsMode() && nowMs < manager.silenceUntil) {
@@ -1218,11 +1602,15 @@ int onPlaying() {
             }
         }
     }
+    const bool loading = engineLoadingFlag && __atomic_load_n(engineLoadingFlag, __ATOMIC_SEQ_CST) != 0;
     if (manager.runtimeEnabled) {
         AcquireSRWLockExclusive(&stateLock);
-        if ((manager.activeTrackPending || manager.activeTrackPlaying) && (result != 0)) {
+        if (manager.deferredPlay) result = 1;
+        if (manager.voicePaused && !manager.activeTrackId.empty()) result = 1;
+        if (!manager.deferredPlay && (manager.activeTrackPending || manager.activeTrackPlaying) && (result != 0) && !loading) {
             manager.activeTrackPending = false;
             manager.activeTrackPlaying = true;
+            recordPlayingHistoryLocked();
         } else if ((manager.activeTrackPending || manager.activeTrackPlaying) && result == 0) {
             if (manager.activeTrackPending) {
                 const Track* active = nullptr;
@@ -1237,6 +1625,7 @@ int onPlaying() {
         }
         ReleaseSRWLockExclusive(&stateLock);
     }
+    if (controlThread) result = processMusicControls(action, result, loading);
     if (lastPlaying.exchange(result, std::memory_order_relaxed) != result) {
         e.phase = 'E'; e.arg0 = result; enqueue(e);
     }
@@ -1344,7 +1733,7 @@ bool startLog() {
     if (output == INVALID_HANDLE_VALUE) return false;
     QueryPerformanceCounter(&epoch); QueryPerformanceFrequency(&frequency);
     char header[1000];
-    snprintf(header, sizeof(header), "# Red Wolf Radio %s; UTC=%04u-%02u-%02uT%02u:%02u:%02uZ; exeBase=0x%llx; engineBase=0x%llx\n# Runtime music routing log; Stop/T records the six-second failed-load recovery timeout.\n# Volume/status repeats counted, only changes logged; 10-second counts; 32MiB cap; process-exit tail may be lost.\n# exeSHA256=%s\n# engineSHA256=%s\ncall\tms\tthread\tfunction\tphase\tcaller\targ0\targ1\tbits_or_path_flags\tvolume\tpath_bytes\n",
+    snprintf(header, sizeof(header), "# Red Wolf Radio %s; UTC=%04u-%02u-%02uT%02u:%02u:%02uZ; exeBase=0x%llx; engineBase=0x%llx\n# Runtime music routing log; Stop/T=failed-load timeout. H=hotkey (arg0 Next=1 Previous=2 PlayPause=3; arg1 applied=1 pending=2 ignored=0 failed=-1). Play/D=deferred while user-paused.\n# Volume/status repeats counted, only changes logged; 10-second counts; 32MiB cap; process-exit tail may be lost.\n# exeSHA256=%s\n# engineSHA256=%s\ncall\tms\tthread\tfunction\tphase\tcaller\targ0\targ1\tbits_or_path_flags\tvolume\tpath_bytes\n",
         kVersion, utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond,
         reinterpret_cast<unsigned long long>(host->exeModule), reinterpret_cast<unsigned long long>(host->engineModule), kExeHash, kEngineHash);
     if (!writeLine(header)) return false;

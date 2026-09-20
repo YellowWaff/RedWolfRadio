@@ -1,4 +1,5 @@
 param(
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
     [string]$Version = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim(),
     [string]$DllPath = (Join-Path $PSScriptRoot 'build\RedWolfRadio.dll')
 )
@@ -21,7 +22,12 @@ $releaseZip = Join-Path $distRoot "$releaseName.zip"
 $workshopZip = Join-Path $distRoot "$workshopName.zip"
 
 New-Item -ItemType Directory -Path $distRoot -Force | Out-Null
+$distBoundary = [IO.Path]::GetFullPath($distRoot).TrimEnd('\') + '\'
 foreach ($target in @($releaseRoot, $workshopRoot, $releaseZip, $workshopZip)) {
+    $resolvedTarget = [IO.Path]::GetFullPath($target)
+    if (!$resolvedTarget.StartsWith($distBoundary, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Package target is outside dist: $resolvedTarget"
+    }
     if (Test-Path -LiteralPath $target) {
         Remove-Item -LiteralPath $target -Recurse -Force
     }
@@ -43,6 +49,12 @@ foreach ($name in $commonFiles) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $releaseRoot
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assets\README.md') -Destination (Join-Path $releaseRoot 'ARTWORK-TERMS.md')
+$releaseAssets = Join-Path $releaseRoot 'assets'
+New-Item -ItemType Directory -Path $releaseAssets -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assets\README.md'), (Join-Path $PSScriptRoot 'assets\red-wolf-radio-primary-logo-transparent.png') -Destination $releaseAssets
+$releaseNotices = Join-Path $releaseRoot 'third_party\miniaudio'
+New-Item -ItemType Directory -Path $releaseNotices -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'third_party\miniaudio\LICENSE') -Destination $releaseNotices
 
 $releaseDll = Join-Path $releaseRoot 'RedWolfRadio.dll'
 $releaseHash = (Get-FileHash -LiteralPath $releaseDll -Algorithm SHA256).Hash
@@ -57,6 +69,12 @@ foreach ($name in $commonFiles) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $workshopRoot
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assets\README.md') -Destination (Join-Path $workshopRoot 'ARTWORK-TERMS.md')
+$workshopAssets = Join-Path $workshopRoot 'assets'
+New-Item -ItemType Directory -Path $workshopAssets -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'assets\README.md'), (Join-Path $PSScriptRoot 'assets\red-wolf-radio-primary-logo-transparent.png') -Destination $workshopAssets
+$workshopNotices = Join-Path $workshopRoot 'third_party\miniaudio'
+New-Item -ItemType Directory -Path $workshopNotices -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'third_party\miniaudio\LICENSE') -Destination $workshopNotices
 
 $workshopDll = Join-Path $workshopPlugin 'RedWolfRadio.dll'
 $workshopHash = (Get-FileHash -LiteralPath $workshopDll -Algorithm SHA256).Hash

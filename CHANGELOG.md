@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add configurable gameplay shortcuts for Next, Previous, and Play/Pause in the INI.
+- Make Previous restart the current track; repeated presses within one second step backward through playback history.
+- Retain the last three previous tracks by default with `Cache.HistoryTracks`, sharing the bounded cache.
+- Pause and resume the XAudio2 source voice at its actual playback position; retain the game's music-volume behavior.
+- Disable invalid or duplicate hotkey bindings with a diagnostic while preserving music settings.
+- Prepare historical replay targets in the background and keep navigation on the game music thread.
+- Verify the bounded-cache build with a 65-minute gameplay run and a 10-minute restart, including 12 completed WAV tracks and cache reuse. The new shortcuts still require an in-game acceptance test.
+
 - Expand Windows environment variables in `Sources.ExternalPath`.
 - Write `%USERPROFILE%\Music` into newly created INI files without embedding a username.
 - Keep a blank `ExternalPath` as the redirected Windows Music known-folder fallback.

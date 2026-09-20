@@ -8,6 +8,14 @@ Use Republic Mod Loader's built-in Tesmio API 4 compatibility host for the hook-
 
 Use the verified `LoadMusic`, `Play`, `Stop`, `Pause`, `Resume`, `SetVolume`, and `IsPlayingMusic` route. Preserve original XWMA playback through that route. Resolve absolute custom/cache paths through the verified scoped `C3DPath_GetFullPath` hook and relocated continuation. Do not replace game DLLs or edit original music files.
 
+### Gameplay controls (September 2026 development build)
+
+Read foreground key state on the existing game music-status thread and dispatch controls on that same thread. Use only the high bit of `GetAsyncKeyState`, with an edge detector and exact modifiers; reset held-key state after focus loss or a gap in status polling. No global shortcuts, extra game hooks, or audio operations on background threads are introduced. This seam runs in a loaded republic, not the main menu.
+
+Disassembly of the hash-verified engine shows that its exported Pause/Resume functions only change volume. True user pause therefore calls `IXAudio2SourceVoice::Stop(0,0)` without flushing buffers; resume calls `Start(0,0)`. The verified XAudio2 2.8 source voice is stored at engine RVA `0x1dc7f0`, with Start and Stop at x64 vtable slots 19 and 20. Guard the loading flag and pointer reads, and remember voice identity before resuming. An independent silent XAudio2 integration test verified that the sample cursor remains unchanged while stopped and advances after restart. See [Microsoft's Stop contract](https://learn.microsoft.com/en-us/windows/win32/api/xaudio2/nf-xaudio2-ixaudio2sourcevoice-stop).
+
+Next/Previous wait for an eligible prepared target before stopping the current stream and reporting its end to the game scheduler. Historical replay does not consume new shuffled entries. Keep at most 64 playback history entries in memory and retain the last `Cache.HistoryTracks` previous entries (default three) in the existing cache. A song selected while user-paused enters history but its native Play call is deferred until resume, preventing an audible start before the next status poll. The active track, upcoming window, retained history, and requested navigation target are all protected from eviction; no duplicate cache copies are required. Invalid hotkey settings disable only the affected controls, never original-track exclusions.
+
 This choice follows the runtime evidence:
 
 - Native RML API 1 has no hook service; RML's built-in Tesmio API 4 host admitted and ran the tracer with TesmioLoader absent.
