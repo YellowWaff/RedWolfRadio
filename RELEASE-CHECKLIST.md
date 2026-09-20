@@ -46,12 +46,20 @@ The user subsequently requested `Ctrl+Shift+Down` as the default Play/Pause bind
 
 ## 4. Test an actual Workshop installation before public visibility
 
-The user created Workshop item `3805202523` through the game's authoring workflow on September 20, 2026. Its generated metadata identifies Red Wolf Radio as a Script item. The clean payload is staged and independently checked, and the in-game editor visibly shows **Unpublished**. The signed-in Steam page now shows **Hidden**, an updated size of 4.988 MB, and two change notes. A downloaded DLL hash check, the required-item relationship, subscription, and update tests remain pending.
+Workshop item `3805202523` is registered as Script. The current candidate upload completed at 14:27:42 on September 20, 2026, with manifest `5000316681469668187`. The signed-in listing showed **Hidden**, 4.990 MB, and three change notes. A targeted Steam API download completed successfully; all 15 downloaded files matched the authoring payload before personal settings were restored. This assisted download does not establish automatic download behavior. See [VALIDATION.md](VALIDATION.md).
 
-- [ ] Complete project metadata and prepare the listing description, RML dependency, supported versions, and approved preview.
-- [ ] Upload with non-public visibility for testing and install the item through Steam. Confirm the authoring workflow and visibility before submission.
-- [ ] Confirm RML associates the plugin with Red Wolf Radio's own Workshop item and shows the packaged image in its plugin detail panel.
-- [ ] Test clean installation, an update retaining settings, and disabling the plugin. Confirm there is no remaining active loose-DLL copy.
+- [x] Register the project through the game and preserve its generated metadata.
+- [x] Include the approved preview and explainer gallery image, and add Republic Mod Loader item `3787969749` as a required item.
+- [ ] Complete the final listing description and supported-version review with the release candidate.
+- [x] Upload with non-public visibility and verify the subscribed payload, including the candidate DLL hash.
+- [x] Confirm RML associates the enabled plugin with its own Workshop item and shows Sangie's packaged preview in the Plugins detail panel.
+- [x] Verify **Open plugin INI Settings** opens the subscribed plugin's INI; preserve backups and restore the personal configuration beside that DLL.
+- [x] Keep both Development copies disabled and confirm there is no active loose-DLL copy.
+- [x] Confirm startup from the subscribed installation reaches the main menu with exactly one candidate instance, API 4 accepted, and nine successful hooks.
+- [ ] Confirm playback and normal exit from the subscribed installation.
+- [ ] Confirm the revised `Ctrl+Shift+Down` pause/resume binding in gameplay.
+- [ ] Test an ordinary Steam update retaining settings and finish the documented preservation strategy.
+- [ ] Test disabling the subscribed plugin and confirm the game launches normally.
 
 The Steam listing preview and packaged `previewimage.png` serve different readers. Include both; no manually configured thumbnail URL is needed by RML. The current ZIP stages files but does not create Workshop metadata or publish an item.
 

@@ -58,24 +58,39 @@ The XWMA fixtures establish discovery and routing metadata only. Separate live g
 
 The live checks used normal RML diagnostics, not its deep monitor. Playback evidence comes from native call/status traces and loader reports; it is not an independent listening assessment. All sessions exited normally with no recorded failed-load recovery or dropped events.
 
-Afterward, the user's original INI was restored byte-for-byte, the generated local WAV was removed, and all 33 original music files still matched their pre-work SHA-256 hashes. The Development package remains enabled; its numeric identifier is local-only, not a registered Steam Workshop item. The panel's metadata button opens `workshopconfig.ini`; music settings remain in `plugin/RedWolfRadio.ini`. A genuine subscribed Workshop installation and its plugin settings button still require the later distribution test.
+Afterward, the user's original INI was restored byte-for-byte, the generated local WAV was removed, and all 33 original music files still matched their pre-work SHA-256 hashes. At that point the Development package remained enabled; its numeric identifier was local-only, not a registered Steam Workshop item. The panel's metadata button opens `workshopconfig.ini`; music settings remain in `plugin/RedWolfRadio.ini`. The later subscribed installation checks are recorded below.
 
 ## Targeted configuration acceptance — September 20, 2026
 
 The user reported that step 3 worked as expected. This is user-reported acceptance of the listed portable/default source paths, missing/empty and rejected-input cases, one-track playback, ignored artwork, mixed WAV/MP3/FLAC playback, and configurable controls/focus checks. No fresh per-case logs or timing measurements were reviewed for this report. The local Development candidate remains the source-path build described above.
 
-This report does not establish settings preservation through a Steam Workshop update or RML force-refresh. A genuine Workshop installation and an update retaining the user's INI remain distribution checks.
+This report does not establish settings preservation through a Steam Workshop update or RML force-refresh. The later subscribed installation checks are recorded below; automatic update preservation remains unverified.
 
 ## Registered Workshop project staging — September 20, 2026
 
 The user created item `3805202523` through the game. Its authoring folder was populated with 14 files from the rebuilt Workshop package while preserving the game-generated `workshopconfig.ini` byte-for-byte. An independent review checked every packaged file hash, the source-path candidate DLL hash, portable defaults, artwork and license notices. No personal audio, cache, traces, settings backups, or username paths were included in the payload. The user's current settings were backed up outside the authoring folder.
 
-RML showed both local Development projects disabled. WRSR launched normally for authoring inspection and displayed the new item as Script, approximately 4 MB, and **Unpublished**; the Edit Item screen retained that visibility and showed no validation error. No save/upload action was submitted in this check. The already-created Steam copy still contained only the initial metadata and preview when inspected. A successful upload of the DLL and a subscribed runtime test are not yet established.
+RML showed both local Development projects disabled. WRSR launched normally for authoring inspection and displayed the new item as Script, approximately 4 MB, and **Unpublished**; the Edit Item screen retained that visibility and showed no validation error. No save/upload action was submitted in this check. The already-created Steam copy still contained only the initial metadata and preview when inspected. DLL upload and subscribed runtime acceptance were not established by this check.
 
-Later that day, after the user signed into the browser, the live Steam item page showed **Current visibility: Hidden**, file size **4.988 MB**, an update at 12:19 PM, and two change notes. This confirms the listing's non-public visibility and a larger uploaded item. The page still offered Subscribe, and the local download inspected at that time contained only the earlier metadata and preview. The new DLL has not yet been verified by downloading and hashing the subscribed payload.
+Later that day, after the user signed into the browser, the live Steam item page showed **Current visibility: Hidden**, file size **4.988 MB**, an update at 12:19 PM, and two change notes. This confirmed the listing's non-public visibility and a larger uploaded item. The page still offered Subscribe, and the local download inspected at that time contained only the earlier metadata and preview. The subscribed payload was verified in the subsequent check below.
 
 ## Default Play/Pause shortcut adjustment — September 20, 2026
 
 The user reported that `Ctrl+Shift+Space` also paused WRSR and requested `Ctrl+Shift+Down` instead. The current default INI, generated INI, initial configuration and absent-key fallback now use the Down arrow. Next and Previous are unchanged, and existing INIs keep their configured value unless edited.
 
 The full build and existing automated suites passed, including the default-binding and music-control fixtures. The rebuilt `0.9.0-dev-source-paths` DLL has SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`. This differs from the earlier source-path candidate solely because the default shortcut was adjusted; new in-game user acceptance of the Down-arrow binding is pending.
+
+## Subscribed Workshop payload and launcher integration — September 20, 2026
+
+The current staged item was uploaded through the in-game green checkmark. Both the success dialog and Steam's 14:27:42 upload log confirmed completion, producing manifest `5000316681469668187`. The signed-in listing showed **Hidden**, **4.990 MB**, a 14:27 update, and three change notes. Republic Mod Loader item `3787969749` was added as a required item, and the approved explainer graphic was present in the gallery.
+
+After subscription, the ordinary automatic download had not supplied the updated payload. A temporary helper requested only `SteamUGC::DownloadItem(3805202523, true)`; it received the matching success callback (`result=1`) and exited with code 0. This was an assisted Steam download, not RML's destructive force-update procedure, and does not establish that automatic downloading works without intervention.
+
+- Before restoring personal settings, all 15 downloaded files matched the authoring folder byte-for-byte, including the DLL SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`. Local evidence: `evidence/workshop-subscription-20260920/downloaded-hashes.json`.
+- The previous local project's personal INI was restored beside the subscribed DLL, with SHA-256 `527b7b93a0d4d31e0177472962498d4768b9f1fb5d215ab9eba8740255fcd2fb`. Its external backup and the downloaded default INI were retained separately.
+- Both Development copies remained disabled, and no active loose Red Wolf Radio DLL remained in RML's shared plugin directory.
+- RML's Plugins panel visibly showed the enabled plugin associated with Workshop item `3805202523` and the approved Sangie preview. **Open plugin INI Settings** opened the exact subscribed `plugin/RedWolfRadio.ini` in Notepad++, confirmed by its command line.
+
+At 14:36:34, the subscribed candidate launched through RML and reached the visible main menu. The retained startup log contains exactly one queued Red Wolf Radio instance, from item `3805202523`, with the verified candidate hash; both Development copies were explicitly disabled. RML accepted API 4 and all nine hooks succeeded. The catalog contained 61 tracks, including 33 originals in `all` mode, and resolved the configured external test folder. Startup recorded one conversion, one cache hit, zero rejected inputs, and the Down-arrow Play/Pause binding (`40/3`). No configuration-malformed report or matching ERROR/WARN entry was found in this startup review. Evidence: `evidence/workshop-subscription-20260920/runtime-startup.log`.
+
+These checks establish payload delivery, manual settings migration, artwork, Workshop association, settings-button routing, and startup from the subscribed DLL. The game was left at the main menu for user gameplay acceptance; this check does not claim audible playback, working controls, or a normal exit. Gameplay acceptance of `Ctrl+Shift+Down`, ordinary Steam update preservation, and a subscribed-plugin disabling test remain pending.

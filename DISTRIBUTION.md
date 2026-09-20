@@ -42,7 +42,7 @@ The behavior is verified in [`discoverDevelopmentMods` and `ensureDevelopmentIma
 
 Development DLLs use an independent inventory, so leaving both the local project and a loose copy enabled can load the plugin twice. Preserve the current INI and archive the loose DLL with a non-`.dll` extension before enabling the Development copy.
 
-The Development panel offers **Open project folder** and **Open workshopconfig.ini**, not the ordinary plugin **Open settings** button. Edit `<project>/plugin/RedWolfRadio.ini` directly at this stage. The standard settings button and the Plugins detail image still need verification during the later actual Workshop installation.
+The Development panel offers **Open project folder** and **Open workshopconfig.ini**, not the ordinary plugin **Open settings** button. Edit `<project>/plugin/RedWolfRadio.ini` directly at this stage. During the later subscribed installation check, the Plugins panel displayed the correct artwork and **Open plugin INI Settings** opened the subscribed INI.
 
 ## Steam listing versus launcher image
 
@@ -60,4 +60,8 @@ For the subscription test, disable all local Development copies in RML, subscrib
 
 Back up the user's current `plugin/RedWolfRadio.ini` outside both the Workshop download folder and authoring folder. With the game closed, restore that INI beside the downloaded DLL. Back up any optional local Music files too. The `%LOCALAPPDATA%/RedWolfRadio` cache is shared across installations and can remain in place. Repeat the backup/restore around updates or force-refresh until automatic preservation has been established.
 
-Item `3805202523` has a reviewed payload staged, an in-game **Unpublished** visibility check, and a signed-in Steam page showing **Hidden** with an uploaded size of 4.988 MB. The subsequent default Play/Pause change to `Ctrl+Shift+Down` is staged for another upload. See [VALIDATION.md](VALIDATION.md); a downloaded DLL hash and subscribed runtime test remain pending.
+Item `3805202523` was uploaded through the game's green checkmark at 14:27:42 on September 20, 2026, including the `Ctrl+Shift+Down` default. The signed-in listing showed **Hidden**, 4.990 MB, three change notes, the explainer gallery image, and Republic Mod Loader item `3787969749` as a required dependency.
+
+The subscribed payload required an assisted download using a targeted `SteamUGC::DownloadItem` request; RML's force-update procedure was not used. All 15 downloaded files then matched the authoring payload before the personal INI was restored. RML showed the enabled subscribed plugin with the correct Workshop identity and Sangie preview, and its settings button opened that installation's INI. Both local Development copies remained disabled and the old loose DLL remained inactive. See [VALIDATION.md](VALIDATION.md) for hashes and evidence.
+
+The subscribed DLL subsequently reached the main menu with one active Red Wolf Radio instance, API 4 accepted, and nine successful hooks. Audible gameplay, normal exit, disabling, acceptance of the new binding, and ordinary update preservation remain pending. The successful manual INI restoration does not establish automatic preservation by Steam.
