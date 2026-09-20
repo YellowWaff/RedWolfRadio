@@ -49,3 +49,15 @@ The Development panel offers **Open project folder** and **Open workshopconfig.i
 Upload the approved image as the Steam listing preview and include `previewimage.png` in the item contents. RML reads the image from the installed item folder; it does not need a manually configured image URL. A Steam listing image alone does not replace the packaged file.
 
 The current packaging script stages the DLL, defaults, documentation, and artwork. It does not create `workshopconfig.ini`, register an item with Steam, or publish it. Complete and test that authoring step before treating the Workshop archive as a finished upload.
+
+## First Workshop upload and local migration
+
+Create an item through **Workshop → Your items (WIP) → Create new item** in WRSR. The current game's editor offers **Script** and **Unpublished**. Use the registered item folder and preserve its generated `workshopconfig.ini`; a temporary local numeric folder is not a registration. Populate the item with the clean Workshop package, leaving personal music, logs, caches, and settings backups outside the upload folder.
+
+Before the in-game save/upload action, inspect the item editor's visibility label. Do not interpret the metadata's numeric `$VISIBILITY` using the Steam API enum. After uploading, verify the listing's actual visibility and add Republic Mod Loader as a required item in Steam's owner controls.
+
+For the subscription test, disable all local Development copies in RML, subscribe to the item, wait for Steam to finish downloading, and refresh RML. Enable the downloaded plugin in its own Workshop folder; do not copy its DLL into the loader's shared plugin folder. Keep the authoring project disabled so it remains available for future uploads without being loaded alongside the subscribed DLL.
+
+Back up the user's current `plugin/RedWolfRadio.ini` outside both the Workshop download folder and authoring folder. With the game closed, restore that INI beside the downloaded DLL. Back up any optional local Music files too. The `%LOCALAPPDATA%/RedWolfRadio` cache is shared across installations and can remain in place. Repeat the backup/restore around updates or force-refresh until automatic preservation has been established.
+
+Item `3805202523` has a reviewed payload staged and an in-game **Unpublished** visibility check. See [VALIDATION.md](VALIDATION.md); this does not yet establish a successful DLL upload or subscribed installation.

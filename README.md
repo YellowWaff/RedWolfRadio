@@ -6,7 +6,7 @@
 
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
-Version 0.8.1 is the first tested baseline. It is pinned to Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable and engine binaries before installing its hooks.
+The current test candidate is `0.9.0-dev-source-paths`, pinned to Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks. Public release is pending Workshop installation and update testing.
 
 ## Current behavior
 
@@ -19,11 +19,15 @@ Version 0.8.1 is the first tested baseline. It is pinned to Workers & Resources 
 - Shuffles the complete eligible catalog and starts a new shuffled cycle after every track has played.
 - Provides configurable Next, Previous, and true Play/Pause shortcuts during gameplay.
 
-External XWMA files are currently rejected pending compatibility validation; original game XWMA playback remains supported. The current development build bounds derived audio and prepares only the upcoming playlist window; the tested `v0.8.1` tag still prepares the complete custom catalog during startup.
+External XWMA files are currently rejected pending compatibility validation; original game XWMA playback remains supported. This candidate bounds derived audio and prepares only the upcoming playlist window.
 
 ## Install
 
-Copy these files into Republic Mod Loader's plugin folder for the game:
+For the unpublished Workshop test, subscribe to the test item through Steam and wait for its download. Refresh Republic Mod Loader, enable Red Wolf Radio, and launch WRSR through RML. Requires [Republic Mod Loader](https://steamcommunity.com/sharedfiles/filedetails/?id=3787969749). The installed files are under `<Steam library>/steamapps/workshop/content/784150/<Red Wolf Radio item ID>/plugin/`.
+
+Disable every local Development or loose-DLL copy before enabling the subscribed copy. Keep the authoring folder disabled in RML for subscription tests; it remains available in the game's Workshop authoring menu.
+
+For a manual installation, copy these files into Republic Mod Loader's plugin folder for the game:
 
 ```text
 RedWolfRadio.dll
@@ -31,6 +35,8 @@ RedWolfRadio.ini
 ```
 
 Keep the INI filename identical to the DLL stem so Republic Mod Loader can expose it through **Open settings**. The plugin creates the file on first launch if it is absent. Changes take effect on the next game launch.
+
+Before replacing files, updating, or using RML's force-refresh, back up your current `RedWolfRadio.ini` outside the Workshop and game folders. Close the game and restore that backup beside the installed DLL afterward. Preserve any music you added to the optional `plugin/Music` folder separately. Automatic settings preservation through Workshop updates has not yet been verified; this package contains a default INI. The shared audio cache does not need to be moved.
 
 ## Configure
 

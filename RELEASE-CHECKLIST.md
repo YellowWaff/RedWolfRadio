@@ -32,15 +32,19 @@ The Development artwork is now visually verified with the enabled project. RML's
 
 ## 3. Finish targeted configuration checks
 
-- [ ] Verify portable `%USERPROFILE%\Music` defaults and blank-path Windows Music known-folder resolution.
-- [ ] Check missing/empty folders, a rejected audio file, and a one-track library; playback should fail or continue predictably without a crash or busy loop. Confirm normal artwork files are ignored.
-- [ ] Run a short mixed WAV/MP3/FLAC check on the release candidate after the path changes.
-- [ ] Remap a shortcut in the INI, disable one binding, and check game-focus behavior in a loaded republic.
+- [x] Verify portable `%USERPROFILE%\Music` defaults and blank-path Windows Music known-folder resolution. User reported step 3 worked as expected on September 20, 2026.
+- [x] Check missing/empty folders, a rejected audio file, and a one-track library; playback should fail or continue predictably without a crash or busy loop. Confirm normal artwork files are ignored. User-reported acceptance; no new per-case logs reviewed.
+- [x] Run a short mixed WAV/MP3/FLAC check on the release candidate after the path changes. User-reported acceptance.
+- [x] Remap a shortcut in the INI, disable one binding, and check game-focus behavior in a loaded republic. User-reported acceptance.
 - [ ] Define and test INI preservation during installation and updates. The plugin only creates an absent INI, but the archive ships a live default INI. RML's force-refresh removes the item folder; editable settings need a documented backup/restore or persistence strategy. Ordinary Steam update preservation is not yet established.
 
 Keep the existing defaults: upcoming five tracks, three protected previous tracks, and a 4096 MiB soft cache limit. Document that protected files may temporarily exceed the limit and that backward navigation remembers up to 64 entries, independently of cache retention.
 
+The user's September 20 report accepts the targeted configuration checks. Actual Workshop update preservation remains open and must be verified during step 4; the report does not establish Steam update behavior.
+
 ## 4. Test an actual Workshop installation before public visibility
+
+The user created Workshop item `3805202523` through the game's authoring workflow on September 20, 2026. Its generated metadata identifies Red Wolf Radio as a Script item. The clean payload is staged and independently checked, and the in-game editor visibly shows **Unpublished**. Upload of the staged DLL, Steam-side visibility, the required-item relationship, subscription, and update tests remain pending.
 
 - [ ] Complete project metadata and prepare the listing description, RML dependency, supported versions, and approved preview.
 - [ ] Upload with non-public visibility for testing and install the item through Steam. Confirm the authoring workflow and visibility before submission.

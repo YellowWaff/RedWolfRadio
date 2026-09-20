@@ -1,0 +1,15 @@
+Red Wolf Radio adds your own music to Workers & Resources: Soviet Republic through Republic Mod Loader.
+
+This is an unpublished test build. Requires Republic Mod Loader 1.0.1 and Workers & Resources: Soviet Republic 1.1.1.9 on Windows x64. Launch the game through Republic Mod Loader. Compatibility checks restrict music hooks to the verified game and loader binaries.
+
+Play WAV, MP3 and FLAC files from your Windows Music folder or a folder you choose. Folders are scanned on every launch. An optional Music folder beside the plugin DLL is also supported. Keep all, selected, or none of the original soundtrack; original game files are preserved. Original game XWMA music is supported. External XWMA files are not supported in this build.
+
+Custom audio is prepared as WAV in a shared cache. Defaults prepare five upcoming tracks, protect three previous tracks, and use a 4 GiB soft cache limit. Protected tracks can temporarily exceed that limit. No personal songs are included.
+
+In a loaded republic, use Ctrl+Shift+Right for Next, Ctrl+Shift+Left for Previous, and Ctrl+Shift+Space for pause/resume. Previous first restarts the current song; a quick second press goes back. Controls work while paused. Up to 64 playback entries are remembered during a launch; three previous entries are protected in the cache by default. Shortcuts do not operate in the main menu.
+
+Edit plugin/RedWolfRadio.ini to change source folders, original-track exclusions, cache settings and keyboard shortcuts. Back up your INI outside the Workshop folder before updates or force-refresh. Settings preservation through Workshop updates is still being tested.
+
+Character: Sangie. Approved Red Wolf Radio artwork is included with permission; separate artwork terms apply. Plugin code is GPL-3.0-only. See the included license and third-party notices.
+
+This project is not affiliated with or endorsed by 3DIVISION, Hooded Horse, Valve, or the Republic Mod Loader authors.

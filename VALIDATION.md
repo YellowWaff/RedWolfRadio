@@ -35,7 +35,7 @@ The automated suites cover configuration parsing, duplicate and disabled binding
 - The shortcuts run in a loaded republic; main-menu control is not implemented.
 - Arbitrary external XWMA files remain disabled pending compatibility validation. Original game XWMA playback was verified in earlier work.
 - WAV, FLAC, and MP3 conversion have automated fixture coverage and earlier user playback tests; broader input variants remain useful release coverage.
-- Hotkey remapping, disabled bindings, and focus gating have automated coverage; an explicit in-game remapping/focus test is still useful.
+- Hotkey remapping, disabled bindings, and focus gating have automated coverage and September 20 user-reported acceptance; no separate per-case trace review was performed for that report.
 - Compatibility with other executable, engine, or RML builds is not assumed. A separate `temporary_track`/`road_traffic` startup conflict was isolated before these tests and was not a Red Wolf Radio failure.
 
 ## Source-directory regression and local Development installation — September 19, 2026
@@ -59,3 +59,15 @@ The XWMA fixtures establish discovery and routing metadata only. Separate live g
 The live checks used normal RML diagnostics, not its deep monitor. Playback evidence comes from native call/status traces and loader reports; it is not an independent listening assessment. All sessions exited normally with no recorded failed-load recovery or dropped events.
 
 Afterward, the user's original INI was restored byte-for-byte, the generated local WAV was removed, and all 33 original music files still matched their pre-work SHA-256 hashes. The Development package remains enabled; its numeric identifier is local-only, not a registered Steam Workshop item. The panel's metadata button opens `workshopconfig.ini`; music settings remain in `plugin/RedWolfRadio.ini`. A genuine subscribed Workshop installation and its plugin settings button still require the later distribution test.
+
+## Targeted configuration acceptance — September 20, 2026
+
+The user reported that step 3 worked as expected. This is user-reported acceptance of the listed portable/default source paths, missing/empty and rejected-input cases, one-track playback, ignored artwork, mixed WAV/MP3/FLAC playback, and configurable controls/focus checks. No fresh per-case logs or timing measurements were reviewed for this report. The local Development candidate remains the source-path build described above.
+
+This report does not establish settings preservation through a Steam Workshop update or RML force-refresh. A genuine Workshop installation and an update retaining the user's INI remain distribution checks.
+
+## Registered Workshop project staging — September 20, 2026
+
+The user created item `3805202523` through the game. Its authoring folder was populated with 14 files from the rebuilt Workshop package while preserving the game-generated `workshopconfig.ini` byte-for-byte. An independent review checked every packaged file hash, the source-path candidate DLL hash, portable defaults, artwork and license notices. No personal audio, cache, traces, settings backups, or username paths were included in the payload. The user's current settings were backed up outside the authoring folder.
+
+RML showed both local Development projects disabled. WRSR launched normally for authoring inspection and displayed the new item as Script, approximately 4 MB, and **Unpublished**; the Edit Item screen retained that visibility and showed no validation error. No save/upload action was submitted in this check. The already-created Steam copy still contained only the initial metadata and preview when inspected. A successful upload of the DLL and a subscribed runtime test are not yet established.
