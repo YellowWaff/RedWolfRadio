@@ -37,3 +37,25 @@ The automated suites cover configuration parsing, duplicate and disabled binding
 - WAV, FLAC, and MP3 conversion have automated fixture coverage and earlier user playback tests; broader input variants remain useful release coverage.
 - Hotkey remapping, disabled bindings, and focus gating have automated coverage; an explicit in-game remapping/focus test is still useful.
 - Compatibility with other executable, engine, or RML builds is not assumed. A separate `temporary_track`/`road_traffic` startup conflict was isolated before these tests and was not a Red Wolf Radio failure.
+
+## Source-directory regression and local Development installation — September 19, 2026
+
+Build: `0.9.0-dev-source-paths`, DLL SHA-256 `4d71b9dee08b5dc52d86d98d0eddd2095b2a4f1f3a3f241342a29081119dcd8d`.
+
+The full build and automated suites passed. A new isolated-process test runs an executable from a fixture game folder, loads the real built DLL from a separate package folder, and supplies misleading RML directory values and a loader working directory. It confirms:
+
+- Original and plugin-local discovery follow the executable and DLL directories, respectively; decoy tracks under the loader are absent.
+- Recursive arbitrary names, ignored artwork, WAV/FLAC/MP3 preparation, and a file added between catalog builds work.
+- `all`, `selected`, and `none` apply to the discovered original catalog; logs expose every original ID and eligibility status.
+- Read-only original fixtures retain their bytes and modification times, and test-created files stay within the isolated fixture tree.
+
+The XWMA fixtures establish discovery and routing metadata only. Separate live game checks then verified the candidate from an independent local Development package:
+
+- The Development panel visibly displayed Red Wolf Radio's name, approved Sangie thumbnail, one embedded DLL, and enabled state. The old loose DLL was archived with a non-DLL extension before activation. Each session loaded exactly one Red Wolf Radio instance with the candidate hash and nine successful hooks.
+- **Local source / originals none:** resolved the package's own `plugin/Music` and the game's original Music folder. The catalog contained the generated local WAV plus 33 originals, with every original ineligible. The trace selected only the local WAV; three complete gameplay intervals measured approximately 11.99 seconds against its 12-second source duration. The session exited normally after two minutes.
+- **Selected originals:** external and local sources were disabled, and 32 discovered originals were excluded. Only `original:music/track2.xwma` was eligible. Both menu and gameplay requests for excluded tracks were redirected to that permitted original; the game's playing status remained active during the short gameplay check. No new shortcut acceptance is claimed from this run.
+- **All originals:** retained the same 32-ID list but changed mode to `all`. All 33 originals became eligible, including the listed entries, and the menu loaded and played `music/track3.xwma`. This was a startup/menu check, not another gameplay soak.
+
+The live checks used normal RML diagnostics, not its deep monitor. Playback evidence comes from native call/status traces and loader reports; it is not an independent listening assessment. All sessions exited normally with no recorded failed-load recovery or dropped events.
+
+Afterward, the user's original INI was restored byte-for-byte, the generated local WAV was removed, and all 33 original music files still matched their pre-work SHA-256 hashes. The Development package remains enabled; its numeric identifier is local-only, not a registered Steam Workshop item. The panel's metadata button opens `workshopconfig.ini`; music settings remain in `plugin/RedWolfRadio.ini`. A genuine subscribed Workshop installation and its plugin settings button still require the later distribution test.

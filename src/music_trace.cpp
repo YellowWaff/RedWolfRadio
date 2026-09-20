@@ -25,7 +25,7 @@
 #include "music_voice_control.h"
 
 namespace {
-constexpr char kVersion[] = "0.9.0-dev-hotkeys";
+constexpr char kVersion[] = "0.9.0-dev-source-paths";
 constexpr size_t kNoHistory = static_cast<size_t>(-1);
 constexpr size_t kHistoryLimit = 64;
 constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;
@@ -230,6 +230,20 @@ bool normalizeFullPath(const std::wstring& in, std::wstring& out) {
     return true;
 }
 
+bool getModuleRelativePath(HMODULE module, const wchar_t* relative, std::wstring& path) {
+    path.clear();
+    // A missing handle must not silently resolve to this process's executable.
+    if (!module || !relative) return false;
+    std::vector<wchar_t> buffer(32768, 0);
+    const DWORD length = GetModuleFileNameW(module, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (!length || length >= buffer.size()) return false;
+    const wchar_t* slash = wcsrchr(buffer.data(), L'\\');
+    if (!slash) return false;
+    path.assign(buffer.data(), static_cast<size_t>(slash - buffer.data()) + 1);
+    path += relative;
+    return true;
+}
+
 bool expandEnvironmentPath(const std::wstring& in, std::wstring& out) {
     if (in.empty()) { out.clear(); return true; }
     const DWORD needed = ExpandEnvironmentStringsW(in.c_str(), nullptr, 0);
@@ -369,15 +383,7 @@ std::string trimAscii(std::string value) {
 }
 
 bool getPluginIniPath(std::wstring& path) {
-    WCHAR modulePath[MAX_PATH * 4]{};
-    const DWORD length = GetModuleFileNameW(selfModule, modulePath, static_cast<DWORD>(std::size(modulePath)));
-    if (!length || length >= std::size(modulePath)) return false;
-    WCHAR* slash = wcsrchr(modulePath, L'\\');
-    if (!slash) return false;
-    slash[1] = 0;
-    path.assign(modulePath);
-    for (const char* c = kIniName; *c; ++c) path.push_back(static_cast<wchar_t>(*c));
-    return true;
+    return getModuleRelativePath(selfModule, L"RedWolfRadio.ini", path);
 }
 
 bool createDefaultIniIfMissing() {
@@ -1029,7 +1035,6 @@ void requestPrefetch() {
 void rebuildCatalog() {
     std::vector<std::pair<TrackSource, std::wstring>> roots;
     std::set<std::string> usedIds;
-    std::wstring baseRoot;
 
     if (manager.config.externalEnabled) {
         std::wstring root;
@@ -1041,27 +1046,34 @@ void rebuildCatalog() {
     }
     std::wstring pluginLocal;
     if (manager.config.pluginLocalEnabled) {
-        if (host && host->pluginDir && *host->pluginDir && toWide(host->pluginDir, pluginLocal)) {
-            if (normalizeFullPath(pluginLocal, pluginLocal)) {
-                std::wstring candidate = pluginLocal;
-                if (!candidate.empty() && !isSeparator(candidate.back())) candidate.push_back(L'\\');
-                candidate += L"Music";
-                roots.emplace_back(TrackSource::PluginLocal, candidate);
-            }
-        }
+        if (getModuleRelativePath(selfModule, L"Music", pluginLocal))
+            roots.emplace_back(TrackSource::PluginLocal, pluginLocal);
+        else if (host && host->log)
+            host->log("[RedWolfRadio] Could not resolve plugin-local Music from the loaded DLL; source omitted.");
     }
-    if (host && host->baseDir && *host->baseDir && toWide(host->baseDir, baseRoot)) {
-        if (normalizeFullPath(baseRoot, baseRoot)) {
-            std::wstring candidate = baseRoot;
-            if (!candidate.empty() && !isSeparator(candidate.back())) candidate.push_back(L'\\');
-            candidate += L"media_soviet\\Music";
-            roots.emplace_back(TrackSource::Original, candidate);
-        }
-    }
+    // RML's API4 compatibility host points baseDir/pluginDir at the loader's
+    // shared folders, not the game executable or this plugin's installation.
+    std::wstring originalRoot;
+    if (host && getModuleRelativePath(static_cast<HMODULE>(host->exeModule),
+            L"media_soviet\\Music", originalRoot))
+        roots.emplace_back(TrackSource::Original, originalRoot);
+    else if (host && host->log)
+        host->log("[RedWolfRadio] Could not resolve original Music from the game executable; source omitted.");
 
     manager.catalog.clear();
     for (auto& entry : roots) {
         if (entry.second.empty()) continue;
+        if (host && host->log) {
+            std::string path;
+            if (toUtf8(entry.second, path)) {
+                const char* source = entry.first == TrackSource::Original ? "original" :
+                    (entry.first == TrackSource::External ? "external" : "plugin-local");
+                const DWORD attributes = GetFileAttributesW(entry.second.c_str());
+                host->log("[RedWolfRadio] Source %s: %s (%s).", source, path.c_str(),
+                    attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) ?
+                    "folder found" : "folder unavailable");
+            }
+        }
         collectTrackRecursively(entry.second, L"", entry.first,
             entry.first == TrackSource::Original ? true : (entry.first == TrackSource::External ? manager.config.externalRecursive : manager.config.pluginLocalRecursive),
             manager.catalog, usedIds);
@@ -1110,6 +1122,15 @@ void logCatalogStats() {
     host->log("[RedWolfRadio] Catalog prepared: %u tracks total, %u native-capable. Originals mode: %s. Config malformed: %s",
         total, native, mode, manager.configMalformed ? "yes" : "no");
     host->log("[RedWolfRadio] Excluded originals: %zu", manager.excludedOriginalIds.size());
+    for (const Track& track : manager.catalog) {
+        if (track.source != TrackSource::Original) continue;
+        const bool listed = manager.excludedOriginalIds.count(track.id) != 0;
+        const char* reason = track.preparation == PreparationState::Rejected ? "unsupported original format" :
+            (manager.config.originalsMode == OriginalsMode::None ? "originals disabled" :
+             (manager.config.originalsMode == OriginalsMode::Selected && listed ? "selected exclusion" : "included"));
+        host->log("[RedWolfRadio] Original ID: %s; eligible=%s; listedInExcludedIds=%s; %s.",
+            track.id.c_str(), trackEligibleLocked(track) ? "yes" : "no", listed ? "yes" : "no", reason);
+    }
     host->log("[RedWolfRadio] Cache: MaxSizeMiB=%llu, PrefetchTracks=%u, HistoryTracks=%u; startup prepared %u converted, %u cache hits, %u rejected.",
         static_cast<unsigned long long>(manager.config.cacheMaxSizeMiB), manager.config.prefetchTracks, manager.config.historyTracks,
         manager.converted, manager.cacheHits, manager.rejected);

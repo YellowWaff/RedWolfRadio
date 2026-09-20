@@ -19,7 +19,7 @@ Version 0.8.1 is the first tested baseline. It is pinned to Workers & Resources 
 - Shuffles the complete eligible catalog and starts a new shuffled cycle after every track has played.
 - Provides configurable Next, Previous, and true Play/Pause shortcuts during gameplay.
 
-External XWMA discovery exists but remains preliminary until a broader external-file test matrix is complete. The current development build bounds derived audio and prepares only the upcoming playlist window; the tested `v0.8.1` tag still prepares the complete custom catalog during startup.
+External XWMA files are currently rejected pending compatibility validation; original game XWMA playback remains supported. The current development build bounds derived audio and prepares only the upcoming playlist window; the tested `v0.8.1` tag still prepares the complete custom catalog during startup.
 
 ## Install
 
@@ -71,9 +71,11 @@ ExcludedIds=
 
 Environment variables such as `%USERPROFILE%\Music` are expanded when the plugin loads the configuration. Leaving the value blank uses the Windows Music known folder, which follows folder redirection to locations such as OneDrive.
 
+To exclude individual originals, find `Original ID:` entries in RML's runtime log, set `Mode=selected`, and copy the desired IDs into the comma-separated `ExcludedIds` value. The log also lists each resolved source folder and whether each original is eligible. `Mode=all` ignores the exclusion list; `Mode=none` disables every original.
+
 ## Data and diagnostics
 
-Derived audio and logs are written under `%LOCALAPPDATA%\RedWolfRadio`. Original music and user source files are read-only inputs. The cache can be deleted while the game is closed; Red Wolf Radio recreates required files on the next launch.
+Derived audio is written under `%LOCALAPPDATA%\RedWolfRadio`. Diagnostic TSV traces are written to `RedWolfRadio-logs` beside the DLL; startup messages go to RML's runtime log. Original music and user source files are read-only inputs. The cache can be deleted while the game is closed; Red Wolf Radio recreates required files on the next launch.
 
 `MaxSizeMiB=0` disables cache eviction. With a finite limit, Red Wolf Radio removes the least-recently-used derived files first. The active track, the upcoming `PrefetchTracks` window, and the last `HistoryTracks` previous tracks are protected. A pending navigation target is also protected. They share one cache without duplicate audio files. The cache can temporarily remain above the configured limit when protected tracks alone are larger than the limit.
 
@@ -111,6 +113,8 @@ See [VALIDATION.md](VALIDATION.md) for the recorded gameplay and shortcut tests,
 Republic Mod Loader 1.0.1 gets a plugin's detail image from its parent Steam Workshop item. It does not define a per-plugin image field. A standalone Red Wolf Radio Workshop package therefore places [`previewimage.png`](previewimage.png) at the item root and the plugin files in a `plugin` directory. RML discovers that layout and displays the Workshop preview for the plugin.
 
 A local DLL copied directly into RML's own plugin directory has no separate Workshop identity, so RML cannot display Red Wolf Radio's image there. Do not replace Republic Mod Loader's own preview image. See [DISTRIBUTION.md](DISTRIBUTION.md) for the verified package layout and source references.
+
+An unpublished local project can display the artwork in RML's **Development** view before public release. The separate-package installation, artwork, and local music source have been tested. This panel opens project metadata; edit `plugin/RedWolfRadio.ini` directly for music settings. A subscribed Workshop installation still needs its own distribution test.
 
 ## License
 

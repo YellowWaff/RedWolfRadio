@@ -46,6 +46,12 @@ foreach ($test in @('hotkeys', 'music_voice_control', 'music_controls')) {
     & (Join-Path $out "$test-tests.exe")
     if ($LASTEXITCODE) { throw "$test tests failed" }
 }
+& $compiler '-std=c++17' '-O2' '-Wall' '-Wextra' '-Werror' '-static' '-municode' `
+    (Join-Path $PSScriptRoot 'tests\source_paths.cpp') $converterObject $miniaudioObject `
+    '-lbcrypt' '-luser32' '-lole32' '-lshell32' '-o' (Join-Path $out 'source_paths-tests.exe')
+if ($LASTEXITCODE) { throw 'Source path test build failed' }
+& (Join-Path $out 'source_paths-tests.exe')
+if ($LASTEXITCODE) { throw 'Source path tests failed' }
 & (Join-Path $Toolchain 'bin\llvm-readobj.exe') '--file-headers' '--coff-exports' '--coff-imports' (Join-Path $out 'RedWolfRadio.dll') |
     Out-File -LiteralPath (Join-Path $out 'RedWolfRadio-pe.txt') -Encoding utf8
 Get-FileHash -LiteralPath (Join-Path $out 'RedWolfRadio.dll') -Algorithm SHA256

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolve original music beside the game executable and plugin-local music beside the loaded Red Wolf Radio DLL, including separate Development and Workshop installations.
+- Log resolved source folders and stable original-track IDs with their inclusion/exclusion status.
+- Verify the local Development package's artwork, independent DLL/INI location, local WAV playback, and original-track modes in the game; preserve the tested loose DLL and existing user settings during migration.
 - Add configurable gameplay shortcuts for Next, Previous, and Play/Pause in the INI.
 - Make Previous restart the current track; repeated presses within one second step backward through playback history.
 - Retain the last three previous tracks by default with `Cache.HistoryTracks`, sharing the bounded cache.
