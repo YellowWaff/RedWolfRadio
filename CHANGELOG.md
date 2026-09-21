@@ -2,7 +2,10 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-09-20
+
 - Change the default Play/Pause shortcut to Ctrl+Shift+Down to avoid also pausing the game with Space. Existing INI bindings remain configurable.
+- Verify that an ordinary Steam Workshop incremental update retains a customized RedWolfRadio.ini while replacing the plugin DLL.
 - Resolve original music beside the game executable and plugin-local music beside the loaded Red Wolf Radio DLL, including separate Development and Workshop installations.
 - Log resolved source folders and stable original-track IDs with their inclusion/exclusion status.
 - Verify the local Development package's artwork, independent DLL/INI location, local WAV playback, and original-track modes in the game; preserve the tested loose DLL and existing user settings during migration.

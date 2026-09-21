@@ -36,21 +36,21 @@ The Development artwork is now visually verified with the enabled project. RML's
 - [x] Check missing/empty folders, a rejected audio file, and a one-track library; playback should fail or continue predictably without a crash or busy loop. Confirm normal artwork files are ignored. User-reported acceptance; no new per-case logs reviewed.
 - [x] Run a short mixed WAV/MP3/FLAC check on the release candidate after the path changes. User-reported acceptance.
 - [x] Remap a shortcut in the INI, disable one binding, and check game-focus behavior in a loaded republic. User-reported acceptance.
-- [ ] Define and test INI preservation during installation and updates. The plugin only creates an absent INI, but the archive ships a live default INI. RML's force-refresh removes the item folder; editable settings need a documented backup/restore or persistence strategy. Ordinary Steam update preservation is not yet established.
+- [x] Define and test INI preservation during installation and updates. An ordinary Steam update retained the personalized INI byte-for-byte while replacing the DLL. The README still requires an external backup before RML force-refresh, unsubscribe/resubscribe, or manual replacement because those workflows may recreate the item folder.
 
 Keep the existing defaults: upcoming five tracks, three protected previous tracks, and a 4096 MiB soft cache limit. Document that protected files may temporarily exceed the limit and that backward navigation remembers up to 64 entries, independently of cache retention.
 
-The user's September 20 report accepts the targeted configuration checks. Actual Workshop update preservation remains open and must be verified during step 4; the report does not establish Steam update behavior.
+The user's September 20 report accepts the targeted configuration checks. The later ordinary Workshop update test establishes preservation for Steam's normal incremental update path.
 
 The user subsequently requested `Ctrl+Shift+Down` as the default Play/Pause binding because Space also paused the game. The rebuilt candidate and saved settings include this adjustment, automated suites pass, and the September 20 subscribed-package gameplay test accepted the revised binding.
 
 ## 4. Test an actual Workshop installation before public visibility
 
-Workshop item `3805202523` is registered as Script. The current candidate upload completed at 14:27:42 on September 20, 2026, with manifest `5000316681469668187`. The signed-in listing showed **Hidden**, 4.990 MB, and three change notes. A targeted Steam API download completed successfully; all 15 downloaded files matched the authoring payload before personal settings were restored. This assisted download does not establish automatic download behavior. See [VALIDATION.md](VALIDATION.md).
+Workshop item `3805202523` is registered as Script. The initial candidate upload completed at 14:27:42 on September 20, 2026, with manifest `5000316681469668187`; a targeted Steam API download verified its 15 files. The 0.9.0 update-test upload completed at 20:09:32 with manifest `1652410860917990531`. After WRSR and RML closed normally, restarting Steam triggered its ordinary `updating` job, replaced the DLL, and preserved the personalized INI byte-for-byte. See [VALIDATION.md](VALIDATION.md).
 
 - [x] Register the project through the game and preserve its generated metadata.
 - [x] Include the approved preview and explainer gallery image, and add Republic Mod Loader item `3787969749` as a required item.
-- [ ] Complete the final listing description and supported-version review with the release candidate.
+- [x] Complete the final listing description and supported-version review with the release candidate.
 - [x] Upload with non-public visibility and verify the subscribed payload, including the candidate DLL hash.
 - [x] Confirm RML associates the enabled plugin with its own Workshop item and shows Sangie's packaged preview in the Plugins detail panel.
 - [x] Verify **Open plugin INI Settings** opens the subscribed plugin's INI; preserve backups and restore the personal configuration beside that DLL.
@@ -58,19 +58,19 @@ Workshop item `3805202523` is registered as Script. The current candidate upload
 - [x] Confirm startup from the subscribed installation reaches the main menu with exactly one candidate instance, API 4 accepted, and nine successful hooks.
 - [x] Confirm playback, normal exit, and relaunch from the subscribed installation. September 20 user acceptance and trace review cover mixed original/custom tracks and working controls; the latest RML report confirms exit code `0x0` and zero hook-audit issues.
 - [x] Confirm the revised `Ctrl+Shift+Down` pause/resume binding in gameplay. User acceptance and successful shortcut events are recorded in [VALIDATION.md](VALIDATION.md).
-- [ ] Test an ordinary Steam update retaining settings and finish the documented preservation strategy.
-- [ ] Test disabling the subscribed plugin and confirm the game launches normally.
+- [x] Test an ordinary Steam update retaining settings and finish the documented preservation strategy. Steam installed manifest `1652410860917990531`; the personalized INI retained SHA-256 `527b7b93a0d4d31e0177472962498d4768b9f1fb5d215ab9eba8740255fcd2fb` while the DLL changed to the 0.9.0 hash.
+- [x] Test disabling the subscribed plugin and confirm the game launches normally. RML omitted Red Wolf Radio, WRSR reached the main menu, and the session exited normally with code `0x0`; the subscribed plugin was then re-enabled.
 - [x] Diagnose and clear the reported Steam running state after the game and launcher exit. A Notepad++ instance opened through RML's settings button retained a Steam overlay for WRSR. Exiting the saved editor normally returned Steam to **Play** and removed the app from its running list. The workaround is documented; no loader or plugin lifecycle code was changed.
 
 The Steam listing preview and packaged `previewimage.png` serve different readers. Include both; no manually configured thumbnail URL is needed by RML. The current ZIP stages files but does not create Workshop metadata or publish an item.
 
 ## 5. Finalize the release candidate and publication
 
-- [ ] Update version strings and release notes together; rebuild and run the relevant suites after code changes.
-- [ ] Replace outdated baseline wording in the README, verify installation/update instructions, and record candidate hashes and focused acceptance results.
-- [ ] State supported Windows x64 / WRSR 1.1.1.9 / RML 1.0.1 compatibility and the enforced binary checks. Retain gameplay-only shortcut scope.
-- [ ] State WAV, MP3, FLAC, and original game XWMA support. Leave arbitrary external XWMA explicitly unsupported in this release.
-- [ ] Inspect the final archives and public source contents: DLL, defaults, preview, documentation, buildable source, and license notices; no personal songs, caches, diagnostic logs, or unapproved artwork.
+- [x] Update version strings and release notes together; rebuild and run the relevant suites after code changes.
+- [x] Replace outdated baseline wording in the README, verify installation/update instructions, and record candidate hashes and focused acceptance results.
+- [x] State supported Windows x64 / WRSR 1.1.1.9 / RML 1.0.1 compatibility and the enforced binary checks. Retain gameplay-only shortcut scope.
+- [x] State WAV, MP3, FLAC, and original game XWMA support. Leave arbitrary external XWMA explicitly unsupported in this release.
+- [x] Inspect the final archives and public source contents: DLL, defaults, preview, documentation, buildable source, and license notices; no personal songs, caches, diagnostic logs, or unapproved artwork. Both archives contain 14 expected entries and the DLL SHA-256 `22e3584d59c23a738e767e5614dd86feb4c934e9c8f2d18b2d944b854477d53b`.
 - [ ] Publish the matching source/tag and binaries on GitHub and make the Workshop item public once the candidate's remaining checks pass. Add the real Workshop link to the README and link the listing back to GitHub.
 
 Public visibility and external publication have not been changed by this planning review.

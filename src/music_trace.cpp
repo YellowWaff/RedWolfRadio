@@ -25,7 +25,7 @@
 #include "music_voice_control.h"
 
 namespace {
-constexpr char kVersion[] = "0.9.0-dev-source-paths";
+constexpr char kVersion[] = "0.9.0";
 constexpr size_t kNoHistory = static_cast<size_t>(-1);
 constexpr size_t kHistoryLimit = 64;
 constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;

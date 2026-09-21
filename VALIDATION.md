@@ -126,3 +126,19 @@ WRSR PID `42928` exited normally at 19:28:34.480, and neither `SOVIET64.exe` nor
 - The subscribed INI retained SHA-256 `527b7b93a0d4d31e0177472962498d4768b9f1fb5d215ab9eba8740255fcd2fb` before and after cleanup.
 
 This session's lingering status cleared when the RML-opened editor exited. The exact internal Steam tracking mechanism was not instrumented, and no change to Red Wolf Radio's shutdown code is justified by these results. The documented workaround is to save and fully exit editors opened through RML's settings button when finishing a session. Local diagnostic evidence and copies of the three playback traces are retained under ignored `evidence/steam-running-20260920/`; they are not part of the public package.
+
+## Subscribed-plugin disabled launch — September 20, 2026
+
+The subscribed Red Wolf Radio entry was disabled in RML while both Development copies remained disabled. RML's dashboard changed from 14 to 13 enabled plugins, and its runtime log explicitly recorded the subscribed DLL as `[PLUGIN DISABLED]`.
+
+WRSR 1.1.1.9 reached the visible main menu through RML 1.0.1 without loading Red Wolf Radio. The session lasted 45 seconds, exited normally with code `0x0`, and reported zero final hook-chain audit issues. Red Wolf Radio was re-enabled afterward. The retained logs are under ignored `evidence/release-0.9.0-20260920/` and are not included in release packages.
+
+## Ordinary Workshop update and settings preservation — September 20, 2026
+
+The 0.9.0 payload was uploaded through WRSR's green checkmark at 20:09:32 local time. Steam recorded manifest `1652410860917990531`, and the signed-in listing refreshed to version 0.9.0, 4.913 MB, four change notes, and the GitHub source link while remaining **Hidden**.
+
+Before the update, the subscribed installation contained the earlier DLL SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622` and the user's personalized 1,012-byte INI SHA-256 `527b7b93a0d4d31e0177472962498d4768b9f1fb5d215ab9eba8740255fcd2fb`. The INI included the selected external music folder and the accepted `Ctrl+Shift+Down` pause binding.
+
+WRSR and RML closed normally. Steam initially showed no queued download, so the client was exited and relaunched through its normal UI. Its Workshop log then recorded detection of the new manifest, `Starting Workshop download job ( updating )`, and `Finished Workshop download job : No Error`. This path did not use RML force-refresh or the targeted download helper.
+
+After the update, the installed DLL matched the 0.9.0 release SHA-256 `22e3584d59c23a738e767e5614dd86feb4c934e9c8f2d18b2d944b854477d53b`. The personalized INI retained its original length, timestamp, contents, and SHA-256. This establishes settings preservation for an ordinary Steam Workshop incremental update. Backups remain advised for RML force-refresh, unsubscribe/resubscribe, and manual replacement because those operations may recreate the item folder.

@@ -6,7 +6,7 @@
 
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
-The current test candidate is `0.9.0-dev-source-paths`, pinned to Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks. Public release is pending Workshop installation and update testing.
+Version `0.9.0` is verified with Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks.
 
 ## Current behavior
 
@@ -23,7 +23,7 @@ External XWMA files are currently rejected pending compatibility validation; ori
 
 ## Install
 
-For the unpublished Workshop test, subscribe to the test item through Steam and wait for its download. Refresh Republic Mod Loader, enable Red Wolf Radio, and launch WRSR through RML. Requires [Republic Mod Loader](https://steamcommunity.com/sharedfiles/filedetails/?id=3787969749). The installed files are under `<Steam library>/steamapps/workshop/content/784150/<Red Wolf Radio item ID>/plugin/`.
+Subscribe to [Red Wolf Radio on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3805202523) and its required [Republic Mod Loader](https://steamcommunity.com/sharedfiles/filedetails/?id=3787969749). Wait for Steam to download both items, enable Red Wolf Radio in RML, and launch WRSR through RML. The installed files are under `<Steam library>/steamapps/workshop/content/784150/3805202523/plugin/`.
 
 Disable every local Development or loose-DLL copy before enabling the subscribed copy. Keep the authoring folder disabled in RML for subscription tests; it remains available in the game's Workshop authoring menu.
 
@@ -36,7 +36,7 @@ RedWolfRadio.ini
 
 Keep the INI filename identical to the DLL stem so Republic Mod Loader can expose it through **Open settings**. The plugin creates the file on first launch if it is absent. Changes take effect on the next game launch.
 
-Before replacing files, updating, or using RML's force-refresh, back up your current `RedWolfRadio.ini` outside the Workshop and game folders. Close the game and restore that backup beside the installed DLL afterward. Preserve any music you added to the optional `plugin/Music` folder separately. Automatic settings preservation through Workshop updates has not yet been verified; this package contains a default INI. The shared audio cache does not need to be moved.
+Ordinary Steam Workshop updates preserve a customized `RedWolfRadio.ini`; the 0.9.0 update test retained the file byte-for-byte while replacing the DLL. Keep a backup outside the Workshop and game folders before using RML's force-refresh, unsubscribing, or manually replacing files because those operations may recreate the item folder. Preserve any music you added to the optional `plugin/Music` folder separately. The shared audio cache does not need to be moved.
 
 ## Configure
 
@@ -122,7 +122,7 @@ Republic Mod Loader 1.0.1 gets a plugin's detail image from its parent Steam Wor
 
 A local DLL copied directly into RML's own plugin directory has no separate Workshop identity, so RML cannot display Red Wolf Radio's image there. Do not replace Republic Mod Loader's own preview image. See [DISTRIBUTION.md](DISTRIBUTION.md) for the verified package layout and source references.
 
-An unpublished local project can display the artwork in RML's **Development** view before public release. The separate-package installation, artwork, and local music source have been tested. This panel opens project metadata; edit `plugin/RedWolfRadio.ini` directly for music settings. A subscribed Workshop installation still needs its own distribution test.
+The separate Workshop installation, artwork, settings routing, mixed original/custom playback, keyboard controls, normal exit, and relaunch have been tested. A local authoring project displays the artwork in RML's **Development** view; that panel opens project metadata, so edit `plugin/RedWolfRadio.ini` directly for music settings.
 
 ## License
 
