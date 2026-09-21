@@ -83,6 +83,8 @@ To exclude individual originals, find `Original ID:` entries in RML's runtime lo
 
 Derived audio is written under `%LOCALAPPDATA%\RedWolfRadio`. Diagnostic TSV traces are written to `RedWolfRadio-logs` beside the DLL; startup messages go to RML's runtime log. Original music and user source files are read-only inputs. The cache can be deleted while the game is closed; Red Wolf Radio recreates required files on the next launch.
 
+If Steam still shows WRSR as running after both the game and RML have exited, save your changes and fully close any editor opened through RML's **Open settings** button. In the tested RML 1.0.1 session, Steam attached its game overlay to Notepad++; exiting that editor returned Steam to **Play**. Closing only the INI tab may leave the editor process open. See [VALIDATION.md](VALIDATION.md) for the observed process and exit evidence.
+
 `MaxSizeMiB=0` disables cache eviction. With a finite limit, Red Wolf Radio removes the least-recently-used derived files first. The active track, the upcoming `PrefetchTracks` window, and the last `HistoryTracks` previous tracks are protected. A pending navigation target is also protected. They share one cache without duplicate audio files. The cache can temporarily remain above the configured limit when protected tracks alone are larger than the limit.
 
 ## Keyboard controls

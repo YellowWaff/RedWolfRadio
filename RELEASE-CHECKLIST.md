@@ -42,7 +42,7 @@ Keep the existing defaults: upcoming five tracks, three protected previous track
 
 The user's September 20 report accepts the targeted configuration checks. Actual Workshop update preservation remains open and must be verified during step 4; the report does not establish Steam update behavior.
 
-The user subsequently requested `Ctrl+Shift+Down` as the default Play/Pause binding because Space also paused the game. The rebuilt candidate and saved settings include this adjustment, and automated suites pass. Confirm the revised binding in gameplay during the Workshop test.
+The user subsequently requested `Ctrl+Shift+Down` as the default Play/Pause binding because Space also paused the game. The rebuilt candidate and saved settings include this adjustment, automated suites pass, and the September 20 subscribed-package gameplay test accepted the revised binding.
 
 ## 4. Test an actual Workshop installation before public visibility
 
@@ -56,10 +56,11 @@ Workshop item `3805202523` is registered as Script. The current candidate upload
 - [x] Verify **Open plugin INI Settings** opens the subscribed plugin's INI; preserve backups and restore the personal configuration beside that DLL.
 - [x] Keep both Development copies disabled and confirm there is no active loose-DLL copy.
 - [x] Confirm startup from the subscribed installation reaches the main menu with exactly one candidate instance, API 4 accepted, and nine successful hooks.
-- [ ] Confirm playback and normal exit from the subscribed installation.
-- [ ] Confirm the revised `Ctrl+Shift+Down` pause/resume binding in gameplay.
+- [x] Confirm playback, normal exit, and relaunch from the subscribed installation. September 20 user acceptance and trace review cover mixed original/custom tracks and working controls; the latest RML report confirms exit code `0x0` and zero hook-audit issues.
+- [x] Confirm the revised `Ctrl+Shift+Down` pause/resume binding in gameplay. User acceptance and successful shortcut events are recorded in [VALIDATION.md](VALIDATION.md).
 - [ ] Test an ordinary Steam update retaining settings and finish the documented preservation strategy.
 - [ ] Test disabling the subscribed plugin and confirm the game launches normally.
+- [x] Diagnose and clear the reported Steam running state after the game and launcher exit. A Notepad++ instance opened through RML's settings button retained a Steam overlay for WRSR. Exiting the saved editor normally returned Steam to **Play** and removed the app from its running list. The workaround is documented; no loader or plugin lifecycle code was changed.
 
 The Steam listing preview and packaged `previewimage.png` serve different readers. Include both; no manually configured thumbnail URL is needed by RML. The current ZIP stages files but does not create Workshop metadata or publish an item.
 

@@ -78,7 +78,7 @@ Later that day, after the user signed into the browser, the live Steam item page
 
 The user reported that `Ctrl+Shift+Space` also paused WRSR and requested `Ctrl+Shift+Down` instead. The current default INI, generated INI, initial configuration and absent-key fallback now use the Down arrow. Next and Previous are unchanged, and existing INIs keep their configured value unless edited.
 
-The full build and existing automated suites passed, including the default-binding and music-control fixtures. The rebuilt `0.9.0-dev-source-paths` DLL has SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`. This differs from the earlier source-path candidate solely because the default shortcut was adjusted; new in-game user acceptance of the Down-arrow binding is pending.
+The full build and existing automated suites passed, including the default-binding and music-control fixtures. The rebuilt `0.9.0-dev-source-paths` DLL has SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`. This differs from the earlier source-path candidate solely because the default shortcut was adjusted. The subsequent subscribed-package gameplay acceptance below includes the Down-arrow binding.
 
 ## Subscribed Workshop payload and launcher integration — September 20, 2026
 
@@ -93,4 +93,36 @@ After subscription, the ordinary automatic download had not supplied the updated
 
 At 14:36:34, the subscribed candidate launched through RML and reached the visible main menu. The retained startup log contains exactly one queued Red Wolf Radio instance, from item `3805202523`, with the verified candidate hash; both Development copies were explicitly disabled. RML accepted API 4 and all nine hooks succeeded. The catalog contained 61 tracks, including 33 originals in `all` mode, and resolved the configured external test folder. Startup recorded one conversion, one cache hit, zero rejected inputs, and the Down-arrow Play/Pause binding (`40/3`). No configuration-malformed report or matching ERROR/WARN entry was found in this startup review. Evidence: `evidence/workshop-subscription-20260920/runtime-startup.log`.
 
-These checks establish payload delivery, manual settings migration, artwork, Workshop association, settings-button routing, and startup from the subscribed DLL. The game was left at the main menu for user gameplay acceptance; this check does not claim audible playback, working controls, or a normal exit. Gameplay acceptance of `Ctrl+Shift+Down`, ordinary Steam update preservation, and a subscribed-plugin disabling test remain pending.
+These checks establish payload delivery, manual settings migration, artwork, Workshop association, settings-button routing, and startup from the subscribed DLL. The game was left at the main menu for the later user gameplay acceptance recorded below; this startup check alone does not establish audible playback, working controls, or a normal exit. Ordinary Steam update preservation and a subscribed-plugin disabling test remain pending.
+
+## Subscribed Workshop playback and relaunch acceptance — September 20, 2026
+
+Build: `0.9.0-dev-source-paths`, DLL SHA-256 `5bbe5c9c486bbbcaea9e95dc82556fbb27d9c45799a17b63b1d11ea758253622`, subscribed item `3805202523`.
+
+The user confirmed that the subscribed-package test succeeded: all keyboard shortcuts worked with a mixture of original game music and personal tracks, and normal exit followed by relaunch worked. This accepts the revised `Ctrl+Shift+Down` pause/resume shortcut in gameplay.
+
+The retained traces under the subscribed package's `plugin/RedWolfRadio-logs` corroborate the playback and control activity. Filenames use UTC; the sessions occurred on September 20 in the user's local time.
+
+| Trace | Time to final completed Stop | Original selections | External selections | Applied Next / Previous / Pause-or-resume events |
+| --- | --- | --- | --- | --- |
+| `trace-20260921-000450-57860.tsv` | 15 minutes 25 seconds | 12 | 2 | 3 / 4 / 4 |
+| `trace-20260921-002709-42928.tsv` | 1 minute 24 seconds | 14 | 12 | 8 / 16 / 8 |
+
+- Both traces contain zero failed or ignored shortcut results, zero failed-load timeout recoveries, and zero dropped diagnostic events. Selection counts include restarts and navigation; they are not counts of unique or fully completed songs.
+- The latest trace includes track selection while user-paused, deferred native Play calls, and successful resume of the selected track. Both traces end with a completed native Stop call. The earlier startup trace, `trace-20260920-193634-64720.tsv`, also ends with a completed Stop and records no failed-load timeout or dropped events.
+- The latest RML runtime report contains exactly one Red Wolf Radio entry with the expected DLL hash, API 4, nine successful hooks, and zero hook failures. The current `rml-runtime.log` has no warning, error, or fatal entries.
+- At **19:28:34.480 local time**, `rml-runtime.log` records WRSR PID **42928** exiting with code **0x0** after **1 minute 25.628 seconds**. `rml-session.log` confirms normal completion and zero final hook-chain audit issues. The previous session's exit code was overwritten on relaunch; its normal exit is user-reported and its final Stop is retained in the trace.
+
+The user also reported that Steam continued to display the game as running after the game and launcher windows closed. The diagnosis and successful session cleanup are recorded below. This acceptance does not establish automatic Workshop update/settings preservation or the behavior with the subscribed plugin disabled; those checks remain pending.
+
+## Steam running-state diagnosis — September 20, 2026
+
+WRSR PID `42928` exited normally at 19:28:34.480, and neither `SOVIET64.exe` nor `RepublicModLoader.exe` was present during the subsequent process inspection. Steam nevertheless still showed **Stop**.
+
+- Notepad++ PID `69920` remained alive from the earlier RML settings-button check at 14:32:21. Its parent was the earlier RML PID `56888`, and its command line opened the subscribed `plugin/RedWolfRadio.ini`.
+- A surviving Steam `gameoverlayui64.exe` PID `74000` explicitly targeted editor PID `69920` with `-gameid 784150`. This established that Steam's WRSR overlay had attached to the settings editor.
+- The editor showed no modified tabs, with Save and Save All disabled. It was exited normally through its UI; no processes were force-terminated and no save/discard prompt was accepted. Once the editor had exited, no WRSR, RML, Notepad++, or game-overlay process remained in the focused process check.
+- At **19:39:46**, Steam's `gameprocess_log.txt` recorded both latest game/loader PIDs as no longer tracked with exit code 0, followed by `Remove 784150 from running list`. The client visibly returned to the green **Play** button without restarting Steam or pressing its Stop button.
+- The subscribed INI retained SHA-256 `527b7b93a0d4d31e0177472962498d4768b9f1fb5d215ab9eba8740255fcd2fb` before and after cleanup.
+
+This session's lingering status cleared when the RML-opened editor exited. The exact internal Steam tracking mechanism was not instrumented, and no change to Red Wolf Radio's shutdown code is justified by these results. The documented workaround is to save and fully exit editors opened through RML's settings button when finishing a session. Local diagnostic evidence and copies of the three playback traces are retained under ignored `evidence/steam-running-20260920/`; they are not part of the public package.
