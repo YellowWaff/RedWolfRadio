@@ -142,3 +142,9 @@ Before the update, the subscribed installation contained the earlier DLL SHA-256
 WRSR and RML closed normally. Steam initially showed no queued download, so the client was exited and relaunched through its normal UI. Its Workshop log then recorded detection of the new manifest, `Starting Workshop download job ( updating )`, and `Finished Workshop download job : No Error`. This path did not use RML force-refresh or the targeted download helper.
 
 After the update, the installed DLL matched the 0.9.0 release SHA-256 `22e3584d59c23a738e767e5614dd86feb4c934e9c8f2d18b2d944b854477d53b`. The personalized INI retained its original length, timestamp, contents, and SHA-256. This establishes settings preservation for an ordinary Steam Workshop incremental update. Backups remain advised for RML force-refresh, unsubscribe/resubscribe, and manual replacement because those operations may recreate the item folder.
+
+## Public release — September 20, 2026
+
+The final Workshop payload was submitted through WRSR's green checkmark. Steam recorded manifest `6687241742565758771` and `Upload finished for workshop item 3805202523 : OK` at 20:22:18 local time. The refreshed listing showed version 0.9.0, the final settings-preservation wording, 4.916 MB, and five change notes before its visibility was changed from **Hidden** to **Public**.
+
+Commit `37a1298b3ffc9535836dcaec6521866264d5170a` and annotated tag `v0.9.0` were pushed to the public GitHub repository. The GitHub release is marked latest and contains `RedWolfRadio-0.9.0.zip` plus `RedWolfRadio-Workshop-0.9.0.zip`; its displayed SHA-256 values match the locally verified archives. An unauthenticated GitHub read confirmed that the repository is public. The Workshop page and GitHub release link to each other.

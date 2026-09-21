@@ -71,6 +71,6 @@ The Steam listing preview and packaged `previewimage.png` serve different reader
 - [x] State supported Windows x64 / WRSR 1.1.1.9 / RML 1.0.1 compatibility and the enforced binary checks. Retain gameplay-only shortcut scope.
 - [x] State WAV, MP3, FLAC, and original game XWMA support. Leave arbitrary external XWMA explicitly unsupported in this release.
 - [x] Inspect the final archives and public source contents: DLL, defaults, preview, documentation, buildable source, and license notices; no personal songs, caches, diagnostic logs, or unapproved artwork. Both archives contain 14 expected entries and the DLL SHA-256 `22e3584d59c23a738e767e5614dd86feb4c934e9c8f2d18b2d944b854477d53b`.
-- [ ] Publish the matching source/tag and binaries on GitHub and make the Workshop item public once the candidate's remaining checks pass. Add the real Workshop link to the README and link the listing back to GitHub.
+- [x] Publish the matching source/tag and binaries on GitHub and make the Workshop item public once the candidate's remaining checks pass. GitHub release `v0.9.0` contains both verified archives, the public Workshop listing is item `3805202523`, and both descriptions link to the other release channel.
 
-Public visibility and external publication have not been changed by this planning review.
+Red Wolf Radio 0.9.0 was published on GitHub and Steam Workshop on September 20, 2026.
