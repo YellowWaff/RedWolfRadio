@@ -6,7 +6,9 @@
 
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
-Version `0.9.0` is verified with Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks.
+Red Wolf Radio **1.0.0** supports Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks.
+
+Version 1.0 adds external XWMA playback and a compact live music player with icon controls. [Русская инструкция](README.ru.md).
 
 ## Current behavior
 
@@ -18,8 +20,13 @@ Version `0.9.0` is verified with Workers & Resources 1.1.1.9 and Republic Mod Lo
 - Uses the game's music volume, pause, resume, stop, and next-track behavior.
 - Shuffles the complete eligible catalog and starts a new shuffled cycle after every track has played.
 - Provides configurable Next, Previous, and true Play/Pause shortcuts during gameplay.
+- Prepares custom RIFF XWMA/WMAudio2 files for native game playback without creating WAV files.
+- Opens one compact, draggable music player from the game's Scripts menu, with a live source filename and Previous, Restart, Play/Pause, and Next buttons.
+- Offers an optional five-second track-name notification; English and Russian labels are available for the player and notification.
 
-External XWMA files are currently rejected pending compatibility validation; original game XWMA playback remains supported. This candidate bounds derived audio and prepares only the upcoming playlist window.
+Custom XWMA support is limited to the game's verified WMAudio2 profile (mono/stereo, 16-bit decoded samples, 8–48 kHz). Malformed containers and other WMA profiles are omitted with a diagnostic. A short ASCII path plays directly; a Unicode or long path uses an unchanged `.xwma` cache copy. Neither route converts XWMA to WAV. The game still decodes compressed audio during playback. WAV/FLAC/MP3 keep their existing conversion route.
+
+The routed absolute cache path must also fit the game's narrow filename buffer. The plugin uses an ASCII DOS short-path alias when Windows provides one. A non-ASCII cache path without a usable alias fails with a diagnostic; Cyrillic source filenames work through a suitable cache path. The cache location is not configurable in 1.0.
 
 ## Install
 
@@ -27,12 +34,14 @@ Subscribe to [Red Wolf Radio on Steam Workshop](https://steamcommunity.com/share
 
 Disable every local Development or loose-DLL copy before enabling the subscribed copy. Keep the authoring folder disabled in RML for subscription tests; it remains available in the game's Workshop authoring menu.
 
-For a manual installation, copy these files into Republic Mod Loader's plugin folder for the game:
+For a manual audio-only installation, copy these files into Republic Mod Loader's plugin folder for the game:
 
 ```text
 RedWolfRadio.dll
 RedWolfRadio.ini
 ```
+
+The Scripts-menu player also needs its companion script, icon, and script registration in the item's metadata. A loose DLL installation alone cannot add that menu entry. Use the complete Workshop package and follow [DISTRIBUTION.md](DISTRIBUTION.md) when preparing a local item; preserve the item's existing metadata and merge the supplied registration before `$END`. Extracting an archive does not register a script automatically.
 
 Keep the INI filename identical to the DLL stem so Republic Mod Loader can expose it through **Open settings**. The plugin creates the file on first launch if it is absent. Changes take effect on the next game launch.
 
@@ -68,6 +77,11 @@ Next=Ctrl+Shift+Right
 Previous=Ctrl+Shift+Left
 PlayPause=Ctrl+Shift+Down
 
+[Display]
+ShowTrackName=false
+NativeSongPopup=true
+Language=en
+
 [Originals]
 ; all, selected, or none
 Mode=all
@@ -76,6 +90,14 @@ ExcludedIds=
 ```
 
 Environment variables such as `%USERPROFILE%\Music` are expanded when the plugin loads the configuration. Leaving the value blank uses the Windows Music known folder, which follows folder redirection to locations such as OneDrive.
+
+`Display.NativeSongPopup=true` enables the Scripts-menu player; it does not open the window automatically. Set it to `false` to disable the player on the next launch. `ShowTrackName=true` separately enables the five-second gameplay notification, which is off by default. `Language=ru` translates the player's hover descriptions, empty-player status, and notification label into Russian; filenames retain their original spelling, including Cyrillic. Very long names are shortened on screen.
+
+Existing INI files and explicit preferences are preserved. Add or edit the keys under the existing `[Display]` section to change them; do not create a second copy of the section. When a key is absent, the defaults are `NativeSongPopup=true`, `ShowTrackName=false`, and `Language=en`. An older INI with `ShowTrackName=true` keeps the notification enabled until you change it.
+
+The optional HUD uses a ForceNodes frame callback when available, or the verified native gameplay frame boundary. An unknown hook owner disables only the HUD before a hook request is made.
+
+To use music from another Workshop item, copy its `.xwma` files into your configured music folder. There is no automatic Workshop download/import, and neither that item nor the game's music directory is changed. Keep any folder structure you prefer; discovery is recursive by default.
 
 To exclude individual originals, find `Original ID:` entries in RML's runtime log, set `Mode=selected`, and copy the desired IDs into the comma-separated `ExcludedIds` value. The log also lists each resolved source folder and whether each original is eligible. `Mode=all` ignores the exclusion list; `Mode=none` disables every original.
 
@@ -101,7 +123,22 @@ Next and Previous preserve a user pause: a newly selected song waits silently at
 
 Bindings accept letters, digits, F1-F24, arrows, Space, PageUp/PageDown, Home, End, Insert, Delete, Enter, Escape, Tab, Backspace, and MediaNext/MediaPrevious/MediaPlayPause. Combine a key with Ctrl, Shift, Alt, or Win using `+`, such as `Alt+N`. Names are case-insensitive. Use `None` to disable an action, or `Enabled=false` to disable all shortcuts. Invalid or duplicate bindings are disabled and explained in the startup log; music and original-track settings remain active. Shortcuts do not consume game keyboard input, so choose combinations that do not conflict with your game controls.
 
-In diagnostic TSVs, phase `H` records shortcut requests/results: `arg0` identifies Next=1, Previous=2, PlayPause=3; `arg1` is applied=1, pending=2, ignored=0, or failed=-1. The detail field describes the action. `Play/D` means a selected track is waiting for the user to resume.
+## Music player window
+
+While a republic is loaded, open **Settings → Other → Scripts** (the **0101** icon), select **Red Wolf Radio**, and confirm with the green checkmark. The compact 360×128 UI-unit window scales with the game, stays open, and updates the source filename automatically. Four icon buttons provide the controls below; hovering over a button shows its action name in the red title bar. The Play/Pause icon follows the playback state. Long names wrap to two lines and then shorten with an ellipsis. Opening the action again keeps a single player window.
+
+| Icon button, from left to right | Action |
+|---|---|
+| Previous | Go directly to the preceding track in playback history. At the beginning of history, restart the oldest available track. |
+| Restart | Start the current track from the beginning. |
+| Play / Pause | Resume or pause at the current audio position. |
+| Next | Move forward through history, then continue the playlist. |
+
+The window's **Previous** button goes back immediately; the **keyboard Previous shortcut** keeps its restart-first, quick-second-press behavior. Selecting another track or restarting while paused keeps playback paused until you press Play. Keyboard shortcuts also update the open window.
+
+Drag the red title bar to move the player. Close it with **X** without stopping music, then reopen it through Scripts whenever needed. Each newly opened player starts in the center; its position is not saved between openings or game sessions. Windows covering the radio block clicks on the covered radio controls. Hover descriptions use `Display.Language`; the transport icons and Red Wolf Radio name are the same in either language.
+
+In diagnostic TSVs, phase `H` records music-command requests/results: `arg0` identifies Next=1, keyboard Previous=2, PlayPause=3, Restart=4, and direct PreviousTrack=5; `arg1` is applied=1, pending=2, ignored=0, or failed=-1. The detail field describes the action. `Play/D` means a selected track is waiting for the user to resume.
 
 ## Build and test
 

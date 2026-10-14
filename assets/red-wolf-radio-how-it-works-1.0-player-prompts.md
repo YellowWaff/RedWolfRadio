@@ -1,0 +1,11 @@
+# Compact player guide edits
+
+Generated with the built-in image_gen tool on October 12, 2026. Edit targets were the accepted 1.0 English/Russian JPEG guides. The outputs replace the old HUD explanation with the Script-menu player, preserving branding, layout and keyboard controls. Exported as JPEG for Steam, each below 2 MB. Earlier guide files are retained as historical drafts.
+
+## English
+
+Use case: text-localization. Edit the supplied existing Workshop infographic for the now accepted compact in-game music player. Preserve the exact canvas, smooth high-quality Sangie logo (NO redesign or low-poly facets), headline, subtitle, all other panels, colors, black body text, arrow keycaps and alignment. Change ONLY body text in the right-hand card 3, preserving its red heading and speaker illustration. Fit 5 short lines with readable black type. No changes outside card 3. This is the English guide. Replace ALL body text under the speaker in card 3 with these exact five lines: "Open the player from Scripts (0101)." / "Live song name in a movable window." / "Previous, Restart, Play/Pause, Next." / "Uses the game’s music volume." / "Original game files stay unchanged." Remove the old five-second notification claim. Do not add another heading or duplicate text.
+
+## Russian
+
+Use case: text-localization. Edit the supplied existing Workshop infographic for the now accepted compact in-game music player. Preserve the exact canvas, smooth high-quality Sangie logo (NO redesign or low-poly facets), headline, subtitle, all other panels, colors, black body text, arrow keycaps and alignment. Change ONLY body text in the right-hand card 3, preserving its red heading and speaker illustration. Fit 5 short lines with readable black type. No changes outside card 3. This is the Russian guide. Replace ALL body text under the speaker in card 3 with these exact five lines: "Откройте плеер в меню скриптов (0101)." / "Имя трека в перемещаемом окне." / "Назад, с начала, пауза, вперёд." / "Громкость регулируется в игре." / "Оригинальные файлы не меняются." Remove the old five-second notification claim. Preserve fully Russian large title and game subtitle, approved logo including its English brand banner, and all other Russian text. Do not add another heading or duplicate text.

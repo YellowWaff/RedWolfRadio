@@ -1,0 +1,56 @@
+// Red Wolf Radio native music player.
+// This one-shot action opens or focuses the live player supplied by the plugin.
+// Base instruction declarations from the installed SOVIETInstructions.txt.
+/*
+Copyright (c) 2017 Michal Kuchárik (Tau)
+
+All rights reserved.
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+*/
+defineInstruction(none, 0);
+defineInstruction(jmp, 1, int);
+defineInstruction(jf, 2, int, int);
+defineInstruction(jt, 3, int, int);
+defineInstruction(set, 4, void, void, void);
+defineInstruction(getsadr, 5, void, void, void);
+defineInstruction(getaadr, 6, void, void, int);
+defineInstruction(getsval, 7, void, void, void);
+defineInstruction(getaval, 8, void, void, int);
+defineInstruction(setstruc, 9, void);
+defineInstruction(add, 10, void, void, void);
+defineInstruction(sub, 11, void, void, void);
+defineInstruction(mul, 12, void, void, void);
+defineInstruction(div, 13, void, void, void);
+defineInstruction(pow, 14, void, void, void);
+defineInstruction(mod, 15, void, void, void);
+defineInstruction(and, 16, void, void, void);
+defineInstruction(or, 17, void, void, void);
+defineInstruction(not, 18, void, void);
+defineInstruction(equal, 19, void, void, void);
+defineInstruction(lesser, 20, void, void, void);
+defineInstruction(greater, 21, void, void, void);
+defineInstruction(call, 22, int);
+defineInstruction(setReturnVariable, 24, void);
+defineInstruction(function, 25, int);
+defineInstruction(return, 26, void);
+defineInstruction(returnVoid, 27);
+defineInstruction(end, 28);
+defineInstruction(inc, 29, int);
+defineInstruction(dec, 30, int);
+defineInstruction(Window_ShowText, 1012, string);
+
+defineFunction(main, void)
+{
+    Window_ShowText("Red Wolf Radio: song information unavailable. Enable the radio plugin in Republic Mod Loader. [RWR_NOW_PLAYING_V1]");
+    end();
+}

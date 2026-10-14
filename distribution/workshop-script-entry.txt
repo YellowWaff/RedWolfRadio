@@ -1,0 +1,1 @@
+$OBJECT_SCRIPT rwr_now_playing "Red Wolf Radio: Now playing"

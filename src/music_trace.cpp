@@ -22,10 +22,15 @@
 #include "audio_converter.h"
 #include "rml_compat.h"
 #include "music_hotkeys.h"
+#include "music_command_queue.h"
 #include "music_voice_control.h"
+#include "track_notification.h"
+#include "native_song_popup.h"
+#include "native_player_ui.h"
+#include "default_ini.h"
 
 namespace {
-constexpr char kVersion[] = "0.9.0";
+constexpr char kVersion[] = "1.0.0";
 constexpr size_t kNoHistory = static_cast<size_t>(-1);
 constexpr size_t kHistoryLimit = 64;
 constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;
@@ -44,6 +49,9 @@ struct Config {
     uint32_t prefetchTracks = 5;
     uint32_t historyTracks = 3;
     bool hotkeysEnabled = true;
+    bool showTrackName = false;
+    bool nativeSongPopup = true;
+    bool displayRussian = false;
     std::array<rwr::Hotkey, 3> hotkeys{{
         {VK_RIGHT, rwr::HotkeyCtrl | rwr::HotkeyShift},
         {VK_LEFT, rwr::HotkeyCtrl | rwr::HotkeyShift},
@@ -57,6 +65,7 @@ struct Track {
     TrackSource source = TrackSource::External;
     std::string relativeUtf8;
     std::wstring absoluteWide;
+    std::wstring displayName;
     std::wstring preparedWide;
     std::string preparedUtf8;
     TrackFormat format = TrackFormat::Unknown;
@@ -77,6 +86,8 @@ struct ManagerState {
     ULONGLONG activeLoadStart = 0;
     bool activeTrackPending = false;
     bool activeTrackPlaying = false;
+    std::wstring notificationText;
+    ULONGLONG notificationUntil = 0;
     bool hooksInstalled = false;
     ULONGLONG silenceUntil = 0;
     bool silenceTrackReady = false;
@@ -104,6 +115,7 @@ struct ManagerState {
     unsigned converted = 0;
     unsigned cacheHits = 0;
     unsigned rejected = 0;
+    unsigned nativeXwma = 0;
 };
 constexpr char kSentinelPath[] = "music/_red_wolf_radio_track";
 constexpr char kStorageFolder[] = "RedWolfRadio";
@@ -391,39 +403,7 @@ bool createDefaultIniIfMissing() {
     if (!getPluginIniPath(iniPath)) return false;
     HANDLE file = CreateFileW(iniPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return GetLastError() == ERROR_FILE_EXISTS;
-    std::string text =
-        "; Red Wolf Radio settings. Republic Mod Loader opens this file from the plugin page.\r\n"
-        "; Changes take effect on the next game launch.\r\n\r\n"
-        "[RedWolfRadio]\r\n"
-        "SchemaVersion=1\r\n\r\n"
-        "[Sources]\r\n"
-        "ExternalEnabled=true\r\n"
-        "; Environment variables such as %USERPROFILE% are expanded.\r\n"
-        "; Leave blank to use this Windows account's configured Music known folder.\r\n"
-        "ExternalPath=%USERPROFILE%\\Music\r\n"
-        "ExternalRecursive=true\r\n"
-        "; The optional local folder is Music beside RedWolfRadio.dll.\r\n"
-        "PluginLocalEnabled=false\r\n"
-        "PluginLocalRecursive=true\r\n\r\n"
-        "[Cache]\r\n"
-        "; Maximum derived-audio cache size in MiB. Zero means unlimited.\r\n"
-        "MaxSizeMiB=4096\r\n"
-        "; Number of upcoming playlist entries kept ready.\r\n"
-        "PrefetchTracks=5\r\n"
-        "; Keep this many previous tracks ready in the same cache.\r\n"
-        "HistoryTracks=3\r\n\r\n"
-        "[Hotkeys]\r\n"
-        "; Active only while the game is focused. None disables a binding.\r\n"
-        "Enabled=true\r\n"
-        "Next=Ctrl+Shift+Right\r\n"
-        "; One press restarts; further presses within one second go backward.\r\n"
-        "Previous=Ctrl+Shift+Left\r\n"
-        "PlayPause=Ctrl+Shift+Down\r\n\r\n"
-        "[Originals]\r\n"
-        "; Mode may be all, selected, or none.\r\n"
-        "Mode=all\r\n"
-        "; With Mode=selected, list stable original: IDs separated by commas.\r\n"
-        "ExcludedIds=\r\n";
+    const std::string text = kDefaultIni;
     DWORD written = 0;
     const bool ok = WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) &&
         written == text.size();
@@ -490,6 +470,26 @@ void parseHotkeyConfig(Config& config) {
     for (size_t i = 0; i < duplicate.size(); ++i) if (duplicate[i]) config.hotkeys[i] = {};
 }
 
+void parseDisplayConfig(Config& config) {
+    std::string value;
+    // A display setting must never disable otherwise valid music playback.
+    if (!readIniValue("Display", "ShowTrackName", "false", value) ||
+        !parseIniBool(value, config.showTrackName)) {
+        config.showTrackName = false;
+        config.hotkeyWarnings.push_back("Display.ShowTrackName must be true or false; notification disabled.");
+    }
+    if (!readIniValue("Display", "NativeSongPopup", "true", value) ||
+        !parseIniBool(value, config.nativeSongPopup)) {
+        config.nativeSongPopup = false;
+        config.hotkeyWarnings.push_back("Display.NativeSongPopup must be true or false; native player disabled.");
+    }
+    readIniValue("Display", "Language", "en", value);
+    value = trimAscii(value); toLower(value);
+    config.displayRussian = value == "ru";
+    if (value != "ru" && value != "en")
+        config.hotkeyWarnings.push_back("Display.Language must be en or ru; using en.");
+}
+
 bool parseConfig(Config& config, bool& malformed, std::string& error) {
     malformed = false;
     error.clear();
@@ -535,6 +535,7 @@ bool parseConfig(Config& config, bool& malformed, std::string& error) {
     }
     config.historyTracks = static_cast<uint32_t>(number);
     parseHotkeyConfig(config);
+    parseDisplayConfig(config);
     if (!readIniValue("Sources", "ExternalPath", "", value)) {
         malformed = true; error = "could not read Sources.ExternalPath"; return false;
     }
@@ -617,6 +618,9 @@ void collectTrackRecursively(const std::wstring& root,
         relWide += data.cFileName;
         if (!toUtf8(relWide, track.relativeUtf8)) continue;
         track.absoluteWide = full;
+        track.displayName = data.cFileName;
+        const size_t extension = track.displayName.find_last_of(L'.');
+        if (extension != std::wstring::npos) track.displayName.resize(extension);
         if (source == TrackSource::Original) {
             std::string game = "music/";
             game += normalizeIdText(track.relativeUtf8);
@@ -625,7 +629,7 @@ void collectTrackRecursively(const std::wstring& root,
         track.nativePlayable = source == TrackSource::Original &&
             (format == TrackFormat::Wav || format == TrackFormat::Xwma);
         if (track.nativePlayable) track.preparation = PreparationState::Ready;
-        else if (source != TrackSource::Original && format != TrackFormat::Xwma)
+        else if (source != TrackSource::Original)
             track.preparation = PreparationState::Pending;
         else track.preparation = PreparationState::Rejected;
         track.id = makeTrackId(source, track.relativeUtf8);
@@ -691,13 +695,15 @@ std::vector<CacheEntry> enumerateCacheFiles(const std::wstring& directory) {
     if (directory.empty()) return files;
     std::wstring search = directory;
     if (!isSeparator(search.back())) search.push_back(L'\\');
-    search += L"*.wav";
+    search += L"*";
     WIN32_FIND_DATAW data{};
     HANDLE found = FindFirstFileW(search.c_str(), &data);
     if (found == INVALID_HANDLE_VALUE) return files;
     do {
         if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
             _wcsicmp(data.cFileName, L"red_wolf_radio_silent.wav") == 0) continue;
+        const TrackFormat format = detectFormat(data.cFileName);
+        if (format != TrackFormat::Wav && format != TrackFormat::Xwma) continue;
         CacheEntry entry;
         entry.path = directory;
         if (!isSeparator(entry.path.back())) entry.path.push_back(L'\\');
@@ -817,6 +823,7 @@ void touchCacheFile(const std::wstring& path) {
 bool prepareTrackAtIndex(size_t index) {
     std::wstring source;
     std::string id;
+    TrackFormat format = TrackFormat::Unknown;
     AcquireSRWLockExclusive(&stateLock);
     if (index >= manager.catalog.size() ||
         manager.catalog[index].preparation != PreparationState::Pending) {
@@ -827,28 +834,40 @@ bool prepareTrackAtIndex(size_t index) {
     pending.preparation = PreparationState::Preparing;
     source = pending.absoluteWide;
     id = pending.id;
+    format = pending.format;
     ReleaseSRWLockExclusive(&stateLock);
 
     pruneCacheToConfiguredLimit();
     CanonicalAudioResult result;
+    NativeAudioResult nativeResult;
     std::string error;
-    bool ok = !manager.cacheDirectory.empty() &&
-        convertToCanonicalCache(source, manager.cacheDirectory, result, error);
+    const bool xwma = format == TrackFormat::Xwma;
+    bool owned = true;
+    bool ok = xwma ? prepareNativeXwma(source, manager.cacheDirectory, nativeResult, error) :
+        (!manager.cacheDirectory.empty() && convertToCanonicalCache(source, manager.cacheDirectory, result, error));
+    if (xwma) {
+        result.path = nativeResult.path; result.cacheHit = nativeResult.cacheHit;
+        owned = nativeResult.copied;
+    }
     std::string routed;
-    if (ok && (!toUtf8(result.path, routed) || routed.empty() || routed.size() >= 256)) {
+    std::wstring enginePath;
+    if (ok && (!resolveEnginePath(result.path, enginePath) || !toUtf8(enginePath, routed))) {
         ok = false;
-        error = "converted cache path exceeds the verified engine limit";
+        error = "prepared path has no safe narrow route within the verified engine limit";
     }
 
     AcquireSRWLockExclusive(&stateLock);
     if (index < manager.catalog.size() && manager.catalog[index].id == id) {
         Track& track = manager.catalog[index];
         if (ok) {
-            track.preparedWide = result.path;
+            // Only plugin-owned files participate in eviction/timestamp touches.
+            track.preparedWide = owned ? result.path : L"";
             track.preparedUtf8 = routed;
             track.nativePlayable = true;
             track.preparation = PreparationState::Ready;
-            if (result.cacheHit) ++manager.cacheHits; else ++manager.converted;
+            if (result.cacheHit) ++manager.cacheHits;
+            if (xwma) ++manager.nativeXwma;
+            else if (!result.cacheHit) ++manager.converted;
         } else {
             track.nativePlayable = false;
             track.preparation = PreparationState::Rejected;
@@ -859,11 +878,12 @@ bool prepareTrackAtIndex(size_t index) {
     ReleaseSRWLockExclusive(&stateLock);
     if (ok) {
         if (host && host->log) host->log("[RedWolfRadio] Prepared %s (%s).",
-            id.c_str(), result.cacheHit ? "cache hit" : "converted");
-        touchCacheFile(result.path);
+            id.c_str(), xwma ? (owned ? "unchanged XWMA cache copy" : "direct native XWMA") :
+                (result.cacheHit ? "cache hit" : "converted"));
+        if (owned) touchCacheFile(result.path);
         pruneCacheToConfiguredLimit();
     } else if (host && host->log) {
-        host->log("[RedWolfRadio] Conversion failed; omitted %s: %s", id.c_str(), error.c_str());
+        host->log("[RedWolfRadio] Preparation failed; omitted %s: %s", id.c_str(), error.c_str());
     }
     return ok;
 }
@@ -911,6 +931,7 @@ const Track* activateTrackLocked(size_t index, size_t historyCursor = kNoHistory
     manager.activeTrackPending = true;
     manager.activeTrackPlaying = false;
     manager.activeLoadStart = 0;
+    manager.notificationText.clear(); manager.notificationUntil = 0;
     manager.selectedHistoryCursor = historyCursor;
     manager.historyRecorded = false;
     manager.voicePaused = false;
@@ -933,7 +954,15 @@ void recordPlayingHistoryLocked() {
     for (size_t index = 0; index < manager.catalog.size(); ++index) {
         if (manager.catalog[index].id != manager.activeTrackId) continue;
         manager.history.push_back(index);
-        if (manager.history.size() > kHistoryLimit) manager.history.erase(manager.history.begin());
+        if (manager.history.size() > kHistoryLimit) {
+            manager.history.erase(manager.history.begin());
+            // An explicit button target chosen while a new song was loading
+            // must follow its entry when the bounded history drops the oldest.
+            if ((manager.pendingNavigationAction == rwr::MusicAction::Restart ||
+                manager.pendingNavigationAction == rwr::MusicAction::PreviousTrack) &&
+                manager.navigationHistoryCursor != kNoHistory && manager.navigationHistoryCursor)
+                --manager.navigationHistoryCursor;
+        }
         manager.historyCursor = manager.history.size() - 1;
         manager.historyRecorded = true;
         return;
@@ -1083,12 +1112,8 @@ void rebuildCatalog() {
     manager.converted = 0;
     manager.cacheHits = 0;
     manager.rejected = 0;
-    for (const Track& track : manager.catalog) {
-        if (track.source != TrackSource::Original && track.preparation == PreparationState::Rejected) {
-            ++manager.rejected;
-            if (host && host->log) host->log("[RedWolfRadio] External XWMA remains disabled pending compatibility validation: %s", track.id.c_str());
-        }
-    }
+    manager.nativeXwma = 0;
+    manager.notificationText.clear(); manager.notificationUntil = 0;
     manager.trackSelectionDirty = true;
     manager.bagCursor = 0;
     manager.activeTrackId.clear();
@@ -1136,6 +1161,7 @@ void logCatalogStats() {
         manager.converted, manager.cacheHits, manager.rejected);
     for (const std::string& warning : manager.config.hotkeyWarnings)
         host->log("[RedWolfRadio] %s", warning.c_str());
+    host->log("[RedWolfRadio] Native custom XWMA prepared: %u (no WAV conversion).", manager.nativeXwma);
     host->log("[RedWolfRadio] Gameplay hotkeys: %s; bindings Next=%u/%u, Previous=%u/%u, PlayPause=%u/%u (key/modifiers).",
         manager.config.hotkeysEnabled ? "enabled" : "disabled",
         manager.config.hotkeys[0].key, manager.config.hotkeys[0].modifiers,
@@ -1283,6 +1309,7 @@ void onStop() {
     manager.activeTrackPending = false;
     manager.activeTrackPlaying = false;
     manager.activeTrackId.clear();
+    manager.notificationText.clear(); manager.notificationUntil = 0;
     manager.voicePaused = false;
     manager.pausedVoice = nullptr;
     manager.deferredPlay = false;
@@ -1443,6 +1470,11 @@ int processMusicControls(rwr::MusicAction action, int status, bool loading, ULON
             logMusicControl(action, 2, manager.userPaused ? "pause requested" : "resume requested");
         } else logMusicControl(action, 0, "no active track");
     } else if (action != rwr::MusicAction::None) {
+        const size_t previousTarget = (manager.navigationPending || manager.awaitingNavigationLoad) ?
+            manager.navigationHistoryCursor : kNoHistory;
+        const bool unrecordedSelection = manager.activeTrackPending && !manager.historyRecorded;
+        const bool newSelectionPending = previousTarget == kNoHistory &&
+            ((unrecordedSelection && manager.selectedHistoryCursor == kNoHistory) || manager.awaitingNavigationLoad);
         manager.navigationPending = !manager.awaitingNavigationLoad;
         manager.pendingNavigationAction = action;
         manager.navigationHistoryCursor = kNoHistory;
@@ -1462,7 +1494,21 @@ int processMusicControls(rwr::MusicAction action, int status, bool loading, ULON
             manager.previousPressAt = 0;
             manager.previousSequenceCursor = kNoHistory;
             manager.previousBurstDepth = 0;
-            if (manager.historyCursor != kNoHistory && manager.historyCursor + 1 < manager.history.size())
+            if (action == rwr::MusicAction::Restart || action == rwr::MusicAction::PreviousTrack) {
+                const size_t selected = previousTarget != kNoHistory ? previousTarget :
+                    (unrecordedSelection && manager.selectedHistoryCursor != kNoHistory ?
+                        manager.selectedHistoryCursor : manager.historyCursor);
+                if (action == rwr::MusicAction::Restart) {
+                    // A new, unrecorded load has no history slot yet. Resolve
+                    // after the loader finishes rather than restarting the old song.
+                    if (!newSelectionPending) manager.navigationHistoryCursor = selected;
+                } else if (selected != kNoHistory) {
+                    // During a new load, the history cursor already denotes
+                    // the preceding song. During replay it denotes that selection.
+                    manager.navigationHistoryCursor = newSelectionPending ? selected :
+                        (selected ? selected - 1 : 0);
+                }
+            } else if (manager.historyCursor != kNoHistory && manager.historyCursor + 1 < manager.history.size())
                 manager.navigationHistoryCursor = manager.historyCursor + 1;
         }
         prefetch = true;
@@ -1476,6 +1522,12 @@ int processMusicControls(rwr::MusicAction action, int status, bool loading, ULON
                 replay = manager.previousSequenceCursor > manager.previousBurstDepth ?
                     manager.previousSequenceCursor - manager.previousBurstDepth : 0;
             } else {
+                manager.navigationPending = false;
+                logMusicControl(navigation, 0, "no playback history");
+            }
+        } else if (navigation == rwr::MusicAction::Restart || navigation == rwr::MusicAction::PreviousTrack) {
+            replay = manager.navigationHistoryCursor != kNoHistory ? manager.navigationHistoryCursor : manager.historyCursor;
+            if (replay == kNoHistory) {
                 manager.navigationPending = false;
                 logMusicControl(navigation, 0, "no playback history");
             }
@@ -1555,13 +1607,330 @@ int processMusicControls(rwr::MusicAction action, int status, bool loading, ULON
     return status;
 }
 
+void notifyTrackStartedLocked(ULONGLONG now) {
+    manager.notificationText.clear(); manager.notificationUntil = 0;
+    if (!manager.config.showTrackName) return;
+    for (const Track& track : manager.catalog) {
+        if (track.id == manager.activeTrackId) {
+            manager.notificationText = track.displayName;
+            manager.notificationUntil = now + 5000;
+            return;
+        }
+    }
+}
+
+// Private native dialog ABI verified against the hash-guarded game build.
+// See evidence/menu-hook-research/native-dialog-route.md for callers and copies.
+using NativeDialogFn = void* (*)(void*, int, void*, int, int, int, int, const wchar_t*, void*);
+std::atomic<NativeDialogFn> previousNativeDialog{nullptr};
+std::atomic<bool> nativePlayerReady{false};
+constexpr size_t kNativeDialogRva = 0x6ee2a0;
+constexpr size_t kScriptDialogReturnRva = 0x5a0454;
+constexpr unsigned char kNativeDialogPrefix[14] = {
+    0x48,0x8b,0xc4,0x44,0x89,0x48,0x20,0x89,0x50,0x10,0x48,0x89,0x48,0x08};
+constexpr unsigned char kScriptDialogCall[5] = {0xe8,0x4c,0xde,0x14,0x00};
+
+void currentNativePlayerSnapshot(rwr::NativePlayerSnapshot& result) {
+    result = {};
+    result.state = rwr::SongPopupState::Unavailable;
+    // This optional UI must never wait on the music thread or allocate under its lock.
+    if (!TryAcquireSRWLockShared(&stateLock)) {
+        result.state = rwr::SongPopupState::Busy;
+        return;
+    }
+    result.russian = manager.config.displayRussian;
+    if (manager.runtimeEnabled) {
+        result.state = rwr::SongPopupState::Stopped;
+        for (const Track& track : manager.catalog) {
+            if (manager.activeTrackId.empty() || track.id != manager.activeTrackId) continue;
+            const size_t count = std::min(track.displayName.size(), rwr::kSongPopupLimit);
+            std::copy_n(track.displayName.data(), count, result.name.data());
+            result.state = manager.userPaused || manager.voicePaused ? rwr::SongPopupState::Paused :
+                manager.activeTrackPending || !manager.activeTrackPlaying ? rwr::SongPopupState::Loading :
+                rwr::SongPopupState::Playing;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&stateLock);
+}
+rwr::SongPopupText currentSongPopupText() {
+    rwr::NativePlayerSnapshot snapshot{};
+    currentNativePlayerSnapshot(snapshot);
+    return rwr::songPopupText(snapshot.name.data(), snapshot.state, snapshot.russian);
+}
+
+void* dispatchNativeSongDialog(const void* caller, void* game, int arg2, void* arg3,
+    int arg4, int arg5, int dialogType, int titleId, const wchar_t* text, void* arg9) {
+    const DWORD incomingError = GetLastError();
+    const auto continuation = previousNativeDialog.load(std::memory_order_acquire);
+    if (!continuation) return nullptr;
+    // Exact caller + tuple avoid examining text in other native dialog variants.
+    const bool ownCall = host && host->exeModule && host->readablePtr && game &&
+        caller == reinterpret_cast<unsigned char*>(host->exeModule) + kScriptDialogReturnRva &&
+        arg2 == 1 && !arg3 && arg4 == 4 && arg5 == 0 && dialogType == 1 && titleId == 0x983e && !arg9;
+    if (ownCall && text && host->readablePtr(text, sizeof(rwr::kSongPopupMarker)) &&
+        !memcmp(text, rwr::kSongPopupMarker, sizeof(rwr::kSongPopupMarker))) {
+        const auto snapshot = currentSongPopupText();
+        const bool live = nativePlayerReady.load(std::memory_order_acquire);
+        if (host->log) host->log("[RedWolfRadio] Native song window requested; live player=%d.", live ? 1 : 0);
+        SetLastError(incomingError);
+        // The native routine copies text before returning. Never retain its object pointer.
+        void* window = continuation(game, arg2, arg3, arg4, live ? 0x525752 : arg5,
+            dialogType, titleId, snapshot.data(), arg9);
+        const DWORD outgoingError = GetLastError();
+        if (live && window) rwr::markNativePlayerWindow(window);
+        SetLastError(outgoingError);
+        return window;
+    }
+    SetLastError(incomingError);
+    return continuation(game, arg2, arg3, arg4, arg5, dialogType, titleId, text, arg9);
+}
+
+__attribute__((noinline)) void* onNativeSongDialog(void* game, int arg2, void* arg3,
+    int arg4, int arg5, int dialogType, int titleId, const wchar_t* text, void* arg9) {
+    return dispatchNativeSongDialog(__builtin_return_address(0), game, arg2, arg3,
+        arg4, arg5, dialogType, titleId, text, arg9);
+}
+
+bool installNativeSongPopup() {
+    if (!manager.config.nativeSongPopup || !host || !host->exeModule || !host->readablePtr ||
+        !host->installInlineHook || host->exeSize < kNativeDialogRva + sizeof(kNativeDialogPrefix)) return false;
+    auto* base = reinterpret_cast<unsigned char*>(host->exeModule);
+    auto* target = base + kNativeDialogRva;
+    auto* call = base + kScriptDialogReturnRva - sizeof(kScriptDialogCall);
+    // Refuse unknown ownership/changed code before a host hook request, which can abort launch.
+    if (!host->readablePtr(target, sizeof(kNativeDialogPrefix)) ||
+        memcmp(target, kNativeDialogPrefix, sizeof(kNativeDialogPrefix)) ||
+        !host->readablePtr(call, sizeof(kScriptDialogCall)) ||
+        memcmp(call, kScriptDialogCall, sizeof(kScriptDialogCall))) return false;
+    // RML leaves the game thread running while installing hooks. Publish a
+    // complete private continuation before the host can expose this detour.
+    // All four stolen instructions are relocation-free. FF25 preserves RAX.
+    constexpr size_t continuationSize = sizeof(kNativeDialogPrefix) + 14;
+    auto* trampoline = static_cast<unsigned char*>(VirtualAlloc(nullptr, continuationSize,
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!trampoline) return false;
+    memcpy(trampoline, kNativeDialogPrefix, sizeof(kNativeDialogPrefix));
+    auto* jump = trampoline + sizeof(kNativeDialogPrefix);
+    jump[0] = 0xff; jump[1] = 0x25; memset(jump + 2, 0, 4);
+    const auto destination = reinterpret_cast<uintptr_t>(target + sizeof(kNativeDialogPrefix));
+    memcpy(jump + 6, &destination, sizeof(destination));
+    DWORD oldProtection = 0;
+    if (!VirtualProtect(trampoline, continuationSize, PAGE_EXECUTE_READ, &oldProtection) ||
+        !FlushInstructionCache(GetCurrentProcess(), trampoline, continuationSize)) {
+        VirtualFree(trampoline, 0, MEM_RELEASE); return false;
+    }
+    previousNativeDialog.store(reinterpret_cast<NativeDialogFn>(trampoline), std::memory_order_release);
+    // Keep the private continuation for process lifetime, even on host failure:
+    // a published callback must never observe freed forwarding code.
+    void* hostContinuation = nullptr;
+    if (!host->installInlineHook(target, reinterpret_cast<void*>(onNativeSongDialog), &hostContinuation,
+        kNativeDialogPrefix, sizeof(kNativeDialogPrefix), "Red Wolf Radio optional native song popup")) return false;
+    if (host->log) host->log("[RedWolfRadio] Native song dialog adapter installed.");
+    return true;
+}
+
+using NativePlayerFrameFn = void (*)(void*, void*, int);
+using NativePlayerBodyFn = void (*)(void*, void*);
+using NativePlayerHitFn = bool (*)(void*, void*);
+std::atomic<NativePlayerFrameFn> previousNativePlayerFrame{nullptr};
+std::atomic<NativePlayerBodyFn> previousNativePlayerBody{nullptr};
+std::atomic<NativePlayerHitFn> previousNativePlayerHit{nullptr};
+constexpr size_t kNativePlayerFrameRva = 0x6f0070;
+constexpr size_t kNativePlayerBodyRva = 0x7f2660;
+constexpr size_t kNativePlayerHitRva = 0x6ef830;
+constexpr unsigned char kNativePlayerFramePrefix[] = {
+    0x48,0x8b,0xc4,0x55,0x53,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0x28,0xfb,0xff,0xff};
+constexpr unsigned char kNativePlayerBodyPrefix[] = {
+    0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x6c,0x24,0x18,0x48,0x89,0x74,0x24,0x20};
+constexpr unsigned char kNativePlayerHitPrefix[] = {
+    0x48,0x8b,0xc4,0x55,0x53,0x56,0x48,0x8d,0x68,0xa1,0x48,0x81,0xec,0xd0,0x00,0x00,0x00};
+
+void onNativePlayerFrame(void* game, void* dialog, int index) {
+    const DWORD incoming = GetLastError();
+    if (nativePlayerReady.load(std::memory_order_acquire) && rwr::isNativePlayerWindow(dialog)) {
+        rwr::drawNativePlayerFrame(game, dialog, index);
+        SetLastError(incoming);
+        return;
+    }
+    const auto next = previousNativePlayerFrame.load(std::memory_order_acquire);
+    SetLastError(incoming);
+    if (next) next(game, dialog, index);
+}
+void onNativePlayerBody(void* game, void* dialog) {
+    const DWORD incoming = GetLastError();
+    const bool owned = nativePlayerReady.load(std::memory_order_acquire) && rwr::isNativePlayerWindow(dialog);
+    SetLastError(incoming);
+    if (owned) return; // The compact frame draws its own body and controls.
+    const auto next = previousNativePlayerBody.load(std::memory_order_acquire);
+    if (next) next(game, dialog);
+}
+bool onNativePlayerHit(void* game, void* dialog) {
+    const DWORD incoming = GetLastError();
+    if (nativePlayerReady.load(std::memory_order_acquire) && rwr::isNativePlayerWindow(dialog)) {
+        const bool hit = rwr::nativePlayerHit(game, dialog);
+        SetLastError(incoming);
+        return hit;
+    }
+    const auto next = previousNativePlayerHit.load(std::memory_order_acquire);
+    SetLastError(incoming);
+    return next ? next(game, dialog) : false;
+}
+
+template<size_t N> bool nativePlayerPrefixMatches(size_t rva, const unsigned char (&prefix)[N]) {
+    return host && host->exeModule && host->readablePtr && rva <= host->exeSize &&
+        N <= host->exeSize - rva && host->readablePtr(static_cast<unsigned char*>(host->exeModule) + rva, N) &&
+        !memcmp(static_cast<unsigned char*>(host->exeModule) + rva, prefix, N);
+}
+template<class Fn, size_t N> bool prepareNativePlayerContinuation(size_t rva,
+    const unsigned char (&prefix)[N], std::atomic<Fn>& destination) {
+    // These verified prefixes contain complete relocation-free instructions.
+    auto* code = static_cast<unsigned char*>(VirtualAlloc(nullptr, N + 14,
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!code) return false;
+    memcpy(code, prefix, N);
+    code[N] = 0xff; code[N + 1] = 0x25;
+    const auto resume = reinterpret_cast<uintptr_t>(host->exeModule) + rva + N;
+    memcpy(code + N + 6, &resume, sizeof(resume));
+    DWORD old = 0;
+    if (!VirtualProtect(code, N + 14, PAGE_EXECUTE_READ, &old) ||
+        !FlushInstructionCache(GetCurrentProcess(), code, N + 14)) {
+        VirtualFree(code, 0, MEM_RELEASE); return false;
+    }
+    // Kept for process lifetime: callbacks may already be published by RML.
+    destination.store(reinterpret_cast<Fn>(code), std::memory_order_release);
+    return true;
+}
+template<class Fn, size_t N> bool installNativePlayerHook(size_t rva,
+    const unsigned char (&prefix)[N], Fn detour, const char* label) {
+    void* ignored = nullptr;
+    return host->installInlineHook(static_cast<unsigned char*>(host->exeModule) + rva,
+        reinterpret_cast<void*>(detour), &ignored, prefix, N, label) != 0;
+}
+bool installNativePlayer() {
+    if (!manager.config.nativeSongPopup || !host || !host->installInlineHook ||
+        !nativePlayerPrefixMatches(kNativeDialogRva, kNativeDialogPrefix) ||
+        !nativePlayerPrefixMatches(kScriptDialogReturnRva - sizeof(kScriptDialogCall), kScriptDialogCall) ||
+        !nativePlayerPrefixMatches(kNativePlayerFrameRva, kNativePlayerFramePrefix) ||
+        !nativePlayerPrefixMatches(kNativePlayerBodyRva, kNativePlayerBodyPrefix) ||
+        !nativePlayerPrefixMatches(kNativePlayerHitRva, kNativePlayerHitPrefix) ||
+        !rwr::initializeNativePlayerUi(host, currentNativePlayerSnapshot, rwr::queueUiMusicAction)) return false;
+    // Prepublish every forwarding path before the first hook request. A partially
+    // installed set only forwards foreign windows; creation/ownership is last.
+    if (!prepareNativePlayerContinuation(kNativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) ||
+        !prepareNativePlayerContinuation(kNativePlayerBodyRva, kNativePlayerBodyPrefix, previousNativePlayerBody) ||
+        !prepareNativePlayerContinuation(kNativePlayerHitRva, kNativePlayerHitPrefix, previousNativePlayerHit)) return false;
+    if (!installNativePlayerHook(kNativePlayerFrameRva, kNativePlayerFramePrefix, onNativePlayerFrame, "Red Wolf Radio native player frame") ||
+        !installNativePlayerHook(kNativePlayerBodyRva, kNativePlayerBodyPrefix, onNativePlayerBody, "Red Wolf Radio native player body") ||
+        !installNativePlayerHook(kNativePlayerHitRva, kNativePlayerHitPrefix, onNativePlayerHit, "Red Wolf Radio native player hit region")) return false;
+    nativePlayerReady.store(true, std::memory_order_release);
+    if (!installNativeSongPopup()) { nativePlayerReady.store(false, std::memory_order_release); return false; }
+    if (host->log) host->log("[RedWolfRadio] Live compact native player installed; automatic refresh and four playback controls.");
+    return true;
+}
+
+using HudPrintFn = void (*)(void*, void*, float, float, unsigned long, const wchar_t*);
+using FrameFn = void (*)(void*);
+HudPrintFn hudPrint = nullptr;
+FrameFn previousFrame = nullptr;
+thread_local bool insideHudFrame = false;
+
+void renderTrackNotification() {
+    std::wstring text;
+    bool russian = false;
+    AcquireSRWLockShared(&stateLock);
+    if (manager.runtimeEnabled && manager.config.showTrackName &&
+        !manager.activeTrackId.empty() && GetTickCount64() < manager.notificationUntil) {
+        text = manager.notificationText; russian = manager.config.displayRussian;
+    }
+    ReleaseSRWLockShared(&stateLock);
+    if (text.empty() || !host || !host->readablePtr || !hudPrint) return;
+    auto* base = reinterpret_cast<unsigned char*>(host->exeModule);
+    auto* fontManager = base + 0x996fb0;
+    auto** fontSlot = reinterpret_cast<void**>(base + 0x994200);
+    auto* width = reinterpret_cast<int*>(base + 0x99528c);
+    auto* height = reinterpret_cast<int*>(base + 0x995274);
+    auto* scale = reinterpret_cast<float*>(base + 0x992088);
+    if (!host->readablePtr(fontManager, 8) || !host->readablePtr(fontSlot, sizeof(void*)) ||
+        !host->readablePtr(width, 4) || !host->readablePtr(height, 4) || !host->readablePtr(scale, 4) ||
+        !*fontSlot || !host->readablePtr(*fontSlot, 8) || *width < 320 || *width > 20000 ||
+        *height < 200 || *height > 20000 || !(*scale >= .25f && *scale <= 8.f)) return;
+    const float x = 20.f * *scale;
+    const float y = static_cast<float>(*height) * .78f;
+    const size_t limit = static_cast<size_t>(std::max(2.f, std::min(80.f, (*width - x * 2) / (12.f * *scale))));
+    text = rwr::notificationName(std::move(text), limit);
+    auto line = [&](float lineY, const wchar_t* value) {
+        hudPrint(fontManager, *fontSlot, x + 1, lineY + 1, 0xe0000000u, value);
+        hudPrint(fontManager, *fontSlot, x, lineY, 0xffffffffu, value);
+    };
+    line(y, russian ? L"\u0421\u0435\u0439\u0447\u0430\u0441 \u0438\u0433\u0440\u0430\u0435\u0442" : L"Now playing");
+    line(y + 20.f * *scale, text.c_str());
+}
+
+void onHudFrame(void* controller) {
+    if (!previousFrame) return;
+    if (insideHudFrame) { previousFrame(controller); return; }
+    insideHudFrame = true;
+    previousFrame(controller);
+    const DWORD after = GetLastError();
+    renderTrackNotification();
+    insideHudFrame = false;
+    // Drawing must not change the native frame's observable last error.
+    SetLastError(after);
+}
+
+// ABI prefixes from ForceNodes' published v1 service. Only the common header
+// and registerFrameClient member are accessed; no implementation is copied.
+struct FrameContextPrefix { unsigned structSize, phase; };
+using FrameClientFn = void (*)(const FrameContextPrefix*, void*);
+struct FrameServicePrefix {
+    unsigned structSize, apiVersion;
+    int (*registerFrameClient)(FrameClientFn, void*);
+};
+void notificationFrameClient(const FrameContextPrefix* frame, void*) {
+    if (frame && frame->structSize >= sizeof(FrameContextPrefix) && frame->phase == 1) {
+        const DWORD saved = GetLastError(); renderTrackNotification(); SetLastError(saved);
+    }
+}
+
+bool installNotificationRenderer() {
+    if (!manager.config.showTrackName) return false;
+    if (!host || !host->readablePtr) return false;
+    const char* name = "?PrintLeftUnicodeNoArg@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_W@Z";
+    void** slot = host->findIatSlot(host->exeModule, "C3DDLL64.dll", name);
+    hudPrint = slot && host->readablePtr(slot, sizeof(void*)) ? reinterpret_cast<HudPrintFn>(*slot) : nullptr;
+    if (!hudPrint) return false;
+    if (host->consume) {
+        auto* service = static_cast<const FrameServicePrefix*>(host->consume("ForceNodes", 1));
+        if (service && host->readablePtr(service, sizeof(FrameServicePrefix)) &&
+            service->apiVersion == 1 && service->structSize >= sizeof(FrameServicePrefix) &&
+            service->registerFrameClient && service->registerFrameClient(notificationFrameClient, nullptr)) {
+            host->log("[RedWolfRadio] Track HUD registered with ForceNodes frame service."); return true;
+        }
+    }
+    constexpr unsigned char prefix[14] = {0x48,0x8b,0xc4,0x48,0x89,0x58,0x20,0x55,0x56,0x57,0x41,0x55,0x41,0x56};
+    auto* target = reinterpret_cast<unsigned char*>(host->exeModule) + 0x2f0f10;
+    // Leave an unknown owner alone. Refusing before the host hook request also
+    // avoids turning an optional display conflict into an RML launch failure.
+    if (!host->readablePtr(target, sizeof(prefix)) || memcmp(target, prefix, sizeof(prefix))) return false;
+    void* continuation = nullptr;
+    if (!host->installInlineHook(target, reinterpret_cast<void*>(onHudFrame), &continuation,
+        prefix, sizeof(prefix), "Red Wolf Radio optional track HUD")) return false;
+    previousFrame = reinterpret_cast<FrameFn>(continuation);
+    host->log("[RedWolfRadio] Track HUD installed at the verified gameplay frame boundary.");
+    return previousFrame != nullptr;
+}
+
 int onPlaying() {
     Event e = begin(Playing, __builtin_return_address(0));
     int result = reinterpret_cast<PlayingFn>(originals[Playing])();
     const DWORD statusError = GetLastError();
     const bool controlThread = manager.runtimeEnabled &&
         musicThreadId.load(std::memory_order_relaxed) == GetCurrentThreadId();
-    const rwr::MusicAction action = controlThread ? pollMusicHotkey() : rwr::MusicAction::None;
+    rwr::MusicAction action = controlThread ? pollMusicHotkey() : rwr::MusicAction::None;
+    // A sampled key edge takes this poll; queued UI commands remain FIFO for
+    // subsequent polls. UI controls also work with keyboard shortcuts disabled.
+    if (controlThread && action == rwr::MusicAction::None) action = rwr::popUiMusicAction();
     const ULONGLONG nowMs = GetTickCount64();
     bool holdNoOriginalsHold = false;
     if (manager.runtimeEnabled && shouldEnforceNoOriginalsMode() && nowMs < manager.silenceUntil) {
@@ -1629,6 +1998,7 @@ int onPlaying() {
         if (manager.deferredPlay) result = 1;
         if (manager.voicePaused && !manager.activeTrackId.empty()) result = 1;
         if (!manager.deferredPlay && (manager.activeTrackPending || manager.activeTrackPlaying) && (result != 0) && !loading) {
+            if (manager.activeTrackPending) notifyTrackStartedLocked(GetTickCount64());
             manager.activeTrackPending = false;
             manager.activeTrackPlaying = true;
             recordPlayingHistoryLocked();
@@ -1643,6 +2013,7 @@ int onPlaying() {
             manager.activeTrackPending = false;
             manager.activeTrackPlaying = false;
             manager.activeTrackId.clear();
+            manager.notificationText.clear(); manager.notificationUntil = 0;
         }
         ReleaseSRWLockExclusive(&stateLock);
     }
@@ -1754,7 +2125,7 @@ bool startLog() {
     if (output == INVALID_HANDLE_VALUE) return false;
     QueryPerformanceCounter(&epoch); QueryPerformanceFrequency(&frequency);
     char header[1000];
-    snprintf(header, sizeof(header), "# Red Wolf Radio %s; UTC=%04u-%02u-%02uT%02u:%02u:%02uZ; exeBase=0x%llx; engineBase=0x%llx\n# Runtime music routing log; Stop/T=failed-load timeout. H=hotkey (arg0 Next=1 Previous=2 PlayPause=3; arg1 applied=1 pending=2 ignored=0 failed=-1). Play/D=deferred while user-paused.\n# Volume/status repeats counted, only changes logged; 10-second counts; 32MiB cap; process-exit tail may be lost.\n# exeSHA256=%s\n# engineSHA256=%s\ncall\tms\tthread\tfunction\tphase\tcaller\targ0\targ1\tbits_or_path_flags\tvolume\tpath_bytes\n",
+    snprintf(header, sizeof(header), "# Red Wolf Radio %s; UTC=%04u-%02u-%02uT%02u:%02u:%02uZ; exeBase=0x%llx; engineBase=0x%llx\n# Runtime music routing log; Stop/T=failed-load timeout. H=music command (arg0 Next=1 Previous=2 PlayPause=3 Restart=4 PreviousTrack=5; arg1 applied=1 pending=2 ignored=0 failed=-1). Play/D=deferred while user-paused.\n# Volume/status repeats counted, only changes logged; 10-second counts; 32MiB cap; process-exit tail may be lost.\n# exeSHA256=%s\n# engineSHA256=%s\ncall\tms\tthread\tfunction\tphase\tcaller\targ0\targ1\tbits_or_path_flags\tvolume\tpath_bytes\n",
         kVersion, utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond,
         reinterpret_cast<unsigned long long>(host->exeModule), reinterpret_cast<unsigned long long>(host->engineModule), kExeHash, kEngineHash);
     if (!writeLine(header)) return false;
@@ -1838,7 +2209,11 @@ extern "C" __declspec(dllexport) int TsmPluginStart() {
         redirectReady.store(true, std::memory_order_relaxed);
         manager.runtimeEnabled = catalogOk && !manager.catalog.empty() &&
             (nativeTrackCount > 0 || manager.config.originalsMode == OriginalsMode::None);
+        if (manager.config.nativeSongPopup && !installNativePlayer())
+            host->log("[RedWolfRadio] Optional native song popup unavailable; Script entry retains its fallback message.");
         if (manager.runtimeEnabled) {
+            if (manager.config.showTrackName && !installNotificationRenderer())
+                host->log("[RedWolfRadio] Optional track HUD unavailable; audio remains active.");
             if (!startPrefetchWorker()) {
                 host->log("[RedWolfRadio] Background prefetch worker unavailable; startup-prepared tracks remain usable.");
             } else {

@@ -68,6 +68,7 @@ static void installVoice(FakeVoice* voice) {
 
 static void resetFixture() {
     manager = ManagerState{};
+    require(rwr::uiMusicCommands.tryClear(), "clear quiescent UI command queue");
     manager.runtimeEnabled = true;
     manager.trackSelectionDirty = false;
     manager.config.prefetchTracks = 2;
@@ -534,6 +535,150 @@ static void testFailedOriginalReplay() {
         "history advances past failed original instead of endlessly replaying the same failed entry");
 }
 
+static void testExplicitHistoryControls() {
+    resetFixture();
+    for (size_t i = 0; i < 4; ++i) selectAndPlay();
+    const size_t bagCursor = manager.bagCursor;
+    require(processMusicControls(rwr::MusicAction::Restart, 1, false, 1000) == 0 &&
+        selectAndPlay() == 3, "Beginning explicitly restarts the current song");
+    require(processMusicControls(rwr::MusicAction::Restart, 1, false, 1100) == 0 &&
+        selectAndPlay() == 3, "quick repeated Beginning never moves backward");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 1, false, 1200) == 0 &&
+        selectAndPlay() == 2, "UI Previous immediately selects preceding song");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 1, false, 8000) == 0 &&
+        selectAndPlay() == 1, "UI Previous is independent of double-press timing");
+    require(processMusicControls(rwr::MusicAction::Previous, 1, false, 8100) == 0 &&
+        selectAndPlay() == 1, "keyboard Previous still restarts after explicit navigation");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 1, false, 8200) == 0 &&
+        selectAndPlay() == 0, "UI Previous reaches oldest available song");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 1, false, 8300) == 0 &&
+        selectAndPlay() == 0, "UI Previous clamps to oldest history and restarts it");
+    require(processMusicControls(rwr::MusicAction::Next, 1, false) == 0 && selectAndPlay() == 1 &&
+        manager.history.size() == 4 && manager.bagCursor == bagCursor,
+        "explicit navigation preserves forward history and shuffle cursor");
+
+    resetFixture();
+    for (size_t i = 0; i < 4; ++i) selectAndPlay();
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, false);
+    require(manager.awaitingNavigationLoad, "explicit previous waits for scheduler load");
+    processMusicControls(rwr::MusicAction::PreviousTrack, 0, false);
+    require(selectAndPlay() == 1, "second explicit previous retargets an awaiting replay");
+
+    resetFixture();
+    for (size_t i = 0; i < 4; ++i) selectAndPlay();
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, false);
+    require(pickTrackLocked()->id == manager.catalog[2].id, "begin historical async load");
+    const int stopsBeforeLoad = engineStops;
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, true);
+    require(engineStops == stopsBeforeLoad && manager.navigationHistoryCursor == 1,
+        "explicit previous during historical load targets preceding selected entry safely");
+    manager.activeTrackPending = false;
+    manager.activeTrackPlaying = true;
+    recordPlayingHistoryLocked();
+    require(processMusicControls(rwr::MusicAction::None, 1, false) == 0 && selectAndPlay() == 1,
+        "explicit historical navigation applies when loader finishes");
+
+    for (const auto action : {rwr::MusicAction::Restart, rwr::MusicAction::PreviousTrack}) {
+        resetFixture();
+        selectAndPlay();
+        require(pickTrackLocked()->id == manager.catalog[1].id, "begin unrecorded new load");
+        processMusicControls(action, 1, true);
+        require(engineStops == 0 && manager.navigationPending, "new-load UI command waits safely");
+        manager.activeTrackPending = false;
+        manager.activeTrackPlaying = true;
+        recordPlayingHistoryLocked();
+        const size_t expected = action == rwr::MusicAction::Restart ? 1 : 0;
+        require(processMusicControls(rwr::MusicAction::None, 1, false) == 0 && selectAndPlay() == expected,
+            "new-load Beginning restarts new song while Previous selects last played song");
+    }
+
+    resetFixture();
+    for (size_t i = 0; i < 4; ++i) selectAndPlay();
+    require(pickTrackLocked()->id == manager.catalog[4].id, "begin new load after longer history");
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, true);
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, true);
+    require(manager.navigationHistoryCursor == 2 && engineStops == 0,
+        "repeated Previous during a new load retargets each requested history entry");
+    manager.activeTrackPending = false;
+    manager.activeTrackPlaying = true;
+    recordPlayingHistoryLocked();
+    require(processMusicControls(rwr::MusicAction::None, 1, false) == 0 && selectAndPlay() == 2,
+        "new-load repeated Previous retains target when the new song enters history");
+
+    resetFixture();
+    for (size_t i = 0; i < kHistoryLimit; ++i) {
+        activateTrackLocked(i % manager.catalog.size());
+        recordPlayingHistoryLocked();
+    }
+    const size_t lastPlayed = manager.history.back();
+    activateTrackLocked(4);
+    processMusicControls(rwr::MusicAction::PreviousTrack, 1, true);
+    manager.activeTrackPending = false;
+    manager.activeTrackPlaying = true;
+    recordPlayingHistoryLocked();
+    require(manager.history.size() == kHistoryLimit && manager.navigationHistoryCursor == kHistoryLimit - 2,
+        "pending explicit history target follows bounded-history eviction");
+    require(processMusicControls(rwr::MusicAction::None, 1, false) == 0 && selectAndPlay() == lastPlayed,
+        "Previous during sixty-fifth load returns to correct prior entry");
+
+    resetFixture();
+    selectAndPlay(); selectAndPlay();
+    processMusicControls(rwr::MusicAction::Next, 1, false);
+    processMusicControls(rwr::MusicAction::PreviousTrack, 0, false);
+    require(selectAndPlay() == 1,
+        "Previous before a fresh Next load returns to last played song without skipping it");
+
+    resetFixture();
+    require(processMusicControls(rwr::MusicAction::Restart, 0, false) == 0 && engineStops == 0 &&
+        !manager.navigationPending, "Beginning with no history leaves scheduler untouched");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 0, false) == 0 && engineStops == 0 &&
+        !manager.navigationPending, "Previous with no history leaves scheduler untouched");
+
+    resetFixture();
+    manager.userPaused = true;
+    for (size_t i = 0; i < 4; ++i) {
+        if (i) processMusicControls(rwr::MusicAction::Next, 1, false);
+        require(selectPaused(false, 20) == i, "build silently paused history");
+    }
+    const size_t pausedBagCursor = manager.bagCursor;
+    require(processMusicControls(rwr::MusicAction::Restart, 1, false) == 0 && selectPaused(false, 20) == 3,
+        "Beginning preserves pause and defers the restart");
+    require(processMusicControls(rwr::MusicAction::PreviousTrack, 1, false) == 0 && selectPaused(false, 20) == 2,
+        "UI Previous preserves pause and silently selects preceding song");
+    require(manager.userPaused && manager.deferredPlay && manager.history.size() == 4 &&
+        manager.bagCursor == pausedBagCursor && enginePlays == 0 && voiceStarts == 0,
+        "explicit paused controls retain history and cannot blip audio");
+}
+
+static void testUiCommandQueue() {
+    rwr::MusicCommandQueue queue;
+    require(!queue.tryPush(rwr::MusicAction::None) && !queue.tryPush(static_cast<rwr::MusicAction>(100)),
+        "UI queue rejects empty and invalid commands");
+    for (size_t cycle = 0; cycle < 3; ++cycle) {
+        for (size_t i = 0; i < rwr::MusicCommandQueue::capacity; ++i)
+            require(queue.tryPush(static_cast<rwr::MusicAction>(i % 5 + 1)), "bounded queue accepts capacity");
+        require(!queue.tryPush(rwr::MusicAction::PlayPause), "full UI queue explicitly rejects overflow");
+        for (size_t i = 0; i < rwr::MusicCommandQueue::capacity; ++i)
+            require(queue.tryPop() == static_cast<rwr::MusicAction>(i % 5 + 1), "queue retains FIFO order");
+        require(queue.tryPop() == rwr::MusicAction::None, "drained UI queue returns no action");
+    }
+
+    resetFixture();
+    manager.config.hotkeysEnabled = false;
+    selectAndPlay();
+    playingResult = 1;
+    require(rwr::queueUiMusicAction(rwr::MusicAction::PlayPause) &&
+        rwr::queueUiMusicAction(rwr::MusicAction::PlayPause), "UI accepts two distinct pause-toggle clicks");
+    require(onPlaying() == 1 && !manager.userPaused && voiceStops == 0,
+        "unidentified music thread cannot drain UI commands");
+    musicThreadId.store(GetCurrentThreadId());
+    require(onPlaying() == 1 && manager.userPaused && voiceStops == 1 && voiceStarts == 0,
+        "valid music poll drains one UI command even when hotkeys are disabled");
+    require(onPlaying() == 1 && !manager.userPaused && voiceStarts == 1,
+        "next poll drains second toggle without coalescing user intent");
+    require(rwr::popUiMusicAction() == rwr::MusicAction::None, "both UI commands were consumed");
+}
+
 int main() {
     engineMemory = static_cast<unsigned char*>(VirtualAlloc(nullptr,
         rwr::kMusicSourceVoiceRva + sizeof(void*), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
@@ -554,6 +699,8 @@ int main() {
     testDeferredPlay();
     testDeferredNavigation();
     testFailedOriginalReplay();
+    testExplicitHistoryControls();
+    testUiCommandQueue();
     host = nullptr;
     engineLoadingFlag = nullptr;
     VirtualFree(engineMemory, 0, MEM_RELEASE);

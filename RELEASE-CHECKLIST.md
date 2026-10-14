@@ -1,5 +1,26 @@
 # Public release checklist
 
+## 1.0 release preparation — October 13, 2026
+
+The compact native player passed local gameplay acceptance on `1.0.0-player1`; the smaller icon-based refinement in `1.0.0-player2` has also been accepted by the user. The final `1.0.0` build is being prepared from that accepted implementation. The player is enabled and the separate transient HUD is disabled by default; explicit user settings remain unchanged. Local acceptance and archive creation do not establish public publication. The earlier rc2 archive verification is retained below as historical preparation evidence, and must not be substituted for verification of the final build.
+
+- [x] External XWMA, percent/Cyrillic source names, natural transitions, pause and volume accepted in-game.
+- [x] Compact player: live title updates, one window, all four buttons, dragging, close/reopen without interrupting playback, 1440x1080 layout and covered-button input accepted.
+- [x] Smaller `player2` frame and icon controls accepted by the user after installation; automated UI and playback suites passed for that development build.
+- [x] Review completed traces and latest RML diagnostics: normal exit, thirteen successful hooks, no hook failures or lost events. See [VALIDATION.md](VALIDATION.md).
+- [x] Earlier rc2 preparation: both archives included script, icon, defaults, English/Russian instructions and matching DLL checksums. Full automated suite passed; each ZIP had 24 verified files, portable settings and no music/cache/log payload. See `evidence/release-1.0.0-rc2/archive-audit.json` for those historical checksums.
+- [x] Build final `1.0.0`, pass the automated suites, and record the final DLL hash: `A519B312B2DF923B3885BA3C7849FFC5FCB5056E1782382B1D3010D16FC75CC2`. Build output is retained under `evidence/release-1.0.0/`; the `player2` and rc2 hashes identify earlier binaries.
+- [x] Build and inspect both final archives: each has exactly 23 expected files, byte-for-byte ZIP/stage/source agreement, a verified six-file runtime checksum manifest, final DLL/version, canonical English/Russian descriptions, current guides below 2 MB, Script action/icon, metadata fragment, portable defaults, and no personal music, caches, logs or Workshop metadata. See `evidence/release-1.0.0/archive-audit.json` for complete archive and file hashes.
+- [ ] Verify the public source includes all new headers, native UI/display tests, companion distribution sources, guides and build changes. Keep local install helpers, evidence and `log.html` outside the release commit. Publish a matching source commit/tag with the final archives.
+- [ ] Stage the verified Workshop payload into registered item `3805202523`, preserving its metadata and adding the script registration once. Keep a backup of the personalized INI outside the upload folder.
+- [ ] Smoke-test the complete packaged installation with one active radio copy and preserved personal settings; confirm the Script action opens the player, a button works, and exit is normal. No repeat hour-long soak is required solely for packaging/version changes.
+- [ ] Submit the Workshop update, record successful upload evidence, and update the bilingual listing/gallery.
+- [ ] Verify the actual subscribed download and final GitHub release: matching DLL and companion files, one active radio instance, retained user settings, usable Script-menu player, and successful normal exit.
+
+The remaining sections are the completed **0.9.0 release record**, not open 1.0 requirements.
+
+## 0.9.0 historical release checklist
+
 Planning review: September 19, 2026. Source-path candidate: `0.9.0-dev-source-paths` (automated suites and focused local Development tests passed). This checklist records remaining work; it does not certify a public release.
 
 ## Accepted playback baseline

@@ -25,7 +25,7 @@ uint32_t le32(const unsigned char* p) {
         (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
 }
 
-bool hashSource(const std::wstring& path, std::string& hex) {
+bool hashSource(const std::wstring& path, std::string& hex, const char* profile = kProfile) {
     HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (file == INVALID_HANDLE_VALUE) return false;
@@ -40,8 +40,8 @@ bool hashSource(const std::wstring& path, std::string& hex) {
         if (!read) break;
         ok = BCryptHashData(hash, buffer, read, 0) >= 0;
     }
-    if (ok) ok = BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char*>(kProfile)),
-        static_cast<ULONG>(strlen(kProfile)), 0) >= 0;
+    if (ok) ok = BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char*>(profile)),
+        static_cast<ULONG>(strlen(profile)), 0) >= 0;
     unsigned char digest[32]{};
     if (ok) ok = BCryptFinishHash(hash, digest, sizeof(digest), 0) >= 0;
     if (hash) BCryptDestroyHash(hash);
@@ -57,6 +57,130 @@ bool hashSource(const std::wstring& path, std::string& hex) {
     return true;
 }
 
+} // namespace
+
+// The pinned game's file resolver copies into a 256-byte narrow buffer. Use
+// ASCII routes only; Unicode/long sources get an unchanged compressed copy.
+bool enginePathSafe(const std::wstring& path) {
+    if (path.empty() || path.size() >= 256) return false;
+    for (wchar_t c : path) if (c < 32 || c > 126) return false;
+    return true;
+}
+
+bool resolveEnginePath(const std::wstring& path, std::wstring& routed) {
+    routed.clear();
+    if (enginePathSafe(path)) { routed = path; return true; }
+    // Preserve the actual owned path for cache accounting; use a DOS alias only
+    // at the narrow engine boundary when the filesystem provides one.
+    std::vector<wchar_t> shortPath(32768, 0);
+    const DWORD size = GetShortPathNameW(path.c_str(), shortPath.data(), static_cast<DWORD>(shortPath.size()));
+    if (!size || size >= shortPath.size()) return false;
+    routed.assign(shortPath.data(), size);
+    if (!enginePathSafe(routed)) { routed.clear(); return false; }
+    return true;
+}
+
+bool validateXwma(const std::wstring& path, XwmaInfo* info) {
+    if (info) *info = {};
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER length{};
+    auto readAt = [&](uint64_t offset, void* buffer, DWORD size) {
+        LARGE_INTEGER position{}; position.QuadPart = static_cast<LONGLONG>(offset);
+        DWORD read = 0;
+        return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) &&
+            ReadFile(file, buffer, size, &read, nullptr) && read == size;
+    };
+    unsigned char header[12]{};
+    bool ok = GetFileSizeEx(file, &length) && length.QuadPart >= 12 &&
+        readAt(0, header, sizeof(header)) && !memcmp(header, "RIFF", 4) &&
+        !memcmp(header + 8, "XWMA", 4) &&
+        static_cast<uint64_t>(le32(header + 4)) + 8 == static_cast<uint64_t>(length.QuadPart);
+    bool formatSeen = false, dataSeen = false, packetsSeen = false;
+    uint32_t block = 0, dataBytes = 0;
+    XwmaInfo parsed{};
+    uint64_t packetOffset = 0;
+    for (uint64_t offset = 12; ok && offset < static_cast<uint64_t>(length.QuadPart);) {
+        unsigned char chunk[8]{};
+        if (static_cast<uint64_t>(length.QuadPart) - offset < 8 || !readAt(offset, chunk, 8)) { ok = false; break; }
+        const uint32_t size = le32(chunk + 4);
+        const uint64_t end = offset + 8 + size + (size & 1u);
+        if (end > static_cast<uint64_t>(length.QuadPart)) { ok = false; break; }
+        if (!memcmp(chunk, "fmt ", 4)) {
+            unsigned char fmt[18]{};
+            if (formatSeen || size != sizeof(fmt) || !readAt(offset + 8, fmt, sizeof(fmt))) { ok = false; break; }
+            formatSeen = true;
+            parsed.channels = le16(fmt + 2); parsed.sampleRate = le32(fmt + 4);
+            block = le16(fmt + 12);
+            // WMAudio2 is the profile present in the verified game's music.
+            // Other WMA profiles need their own engine acceptance test.
+            ok = le16(fmt) == 0x161 && (parsed.channels == 1 || parsed.channels == 2) &&
+                parsed.sampleRate >= 8000 && parsed.sampleRate <= 48000 &&
+                le32(fmt + 8) != 0 && block != 0 && le16(fmt + 14) == 16 && le16(fmt + 16) == 0;
+        } else if (!memcmp(chunk, "dpds", 4)) {
+            if (packetsSeen || !size || size % 4) { ok = false; break; }
+            packetsSeen = true; parsed.packetCount = size / 4; packetOffset = offset + 8;
+        } else if (!memcmp(chunk, "data", 4)) {
+            if (dataSeen || !size) { ok = false; break; }
+            dataSeen = true; dataBytes = size;
+        }
+        offset = end;
+    }
+    ok = ok && formatSeen && dataSeen && packetsSeen && block &&
+        dataBytes % block == 0 && dataBytes / block == parsed.packetCount;
+    // Stream the packet table rather than allocating according to untrusted sizes.
+    unsigned char table[4096];
+    for (uint32_t index = 0; ok && index < parsed.packetCount;) {
+        const uint32_t count = (parsed.packetCount - index < 1024) ? parsed.packetCount - index : 1024;
+        if (!readAt(packetOffset + static_cast<uint64_t>(index) * 4, table, count * 4)) { ok = false; break; }
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t decoded = le32(table + i * 4);
+            // A padding/final compressed packet can produce no additional PCM.
+            // Two shipped game tracks repeat the final cumulative byte count.
+            if (decoded < parsed.decodedBytes || decoded % (parsed.channels * 2)) { ok = false; break; }
+            parsed.decodedBytes = decoded;
+        }
+        index += count;
+    }
+    ok = ok && parsed.decodedBytes != 0;
+    CloseHandle(file);
+    if (ok && info) *info = parsed;
+    return ok;
+}
+
+bool prepareNativeXwma(const std::wstring& source, const std::wstring& cacheDirectory,
+                       NativeAudioResult& result, std::string& error) {
+    result = {}; error.clear();
+    if (!validateXwma(source)) { error = "invalid or unsupported XWMA (requires RIFF XWMA/WMAudio2)"; return false; }
+    if (enginePathSafe(source)) { result.path = source; return true; }
+    if (cacheDirectory.empty()) { error = "no cache directory for safe XWMA route"; return false; }
+    std::string digest;
+    if (!hashSource(source, digest, "red-wolf-radio-native-xwma-v1")) { error = "could not hash XWMA"; return false; }
+    std::wstring destination = cacheDirectory;
+    if (destination.back() != L'\\' && destination.back() != L'/') destination += L'\\';
+    destination.append(digest.begin(), digest.end()); destination += L".xwma";
+    std::wstring routedDirectory;
+    if (!resolveEnginePath(cacheDirectory, routedDirectory) ||
+        !enginePathSafe(routedDirectory + L"\\" + std::wstring(digest.begin(), digest.end()) + L".xwma")) {
+        error = "cache path has no safe narrow engine route (use an ASCII Windows profile/cache path)"; return false;
+    }
+    std::string existingDigest;
+    if (validateXwma(destination) && hashSource(destination, existingDigest, "red-wolf-radio-native-xwma-v1") && existingDigest == digest) {
+        result = {destination, true, true}; return true;
+    }
+    wchar_t suffix[80]{};
+    swprintf(suffix, std::size(suffix), L".tmp-%lu-%lu", GetCurrentProcessId(), GetCurrentThreadId());
+    const std::wstring temporary = destination + suffix;
+    DeleteFileW(temporary.c_str());
+    bool ok = CopyFileW(source.c_str(), temporary.c_str(), TRUE) && validateXwma(temporary) &&
+        hashSource(temporary, existingDigest, "red-wolf-radio-native-xwma-v1") && existingDigest == digest &&
+        MoveFileExW(temporary.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+    if (!ok) { DeleteFileW(temporary.c_str()); error = "could not publish unchanged XWMA cache copy"; return false; }
+    result = {destination, true, false}; return true;
+}
+
+namespace {
 std::string resultText(ma_result value) {
     char text[64]{};
     snprintf(text, sizeof(text), "miniaudio error %d", static_cast<int>(value));

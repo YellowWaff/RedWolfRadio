@@ -6,7 +6,9 @@
 
 namespace rwr {
 
-enum class MusicAction { None, Next, Previous, PlayPause };
+// Keep existing values stable for trace readers and the configured shortcuts.
+// Previous retains its restart/quick-repeat behavior; UI buttons are explicit.
+enum class MusicAction { None = 0, Next = 1, Previous = 2, PlayPause = 3, Restart = 4, PreviousTrack = 5 };
 
 inline constexpr unsigned HotkeyCtrl = 1;
 inline constexpr unsigned HotkeyShift = 2;

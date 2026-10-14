@@ -1,0 +1,34 @@
+Red Wolf Radio 1.0.0
+
+Bring your music to Workers & Resources: Soviet Republic. Requires Windows x64, WRSR 1.1.1.9 and Republic Mod Loader 1.0.1. Launch through RML with only one Red Wolf Radio copy enabled.
+
+Play WAV, MP3, FLAC and RIFF XWMA/WMAudio2 from your Windows Music folder or a folder chosen in plugin/RedWolfRadio.ini. An optional Music folder beside the DLL is supported. Folders are scanned at every launch; album art is ignored. Keep all, selected or none of the original soundtrack without changing game files.
+
+XWMA plays natively without WAV conversion. Supported profile: WMAudio2, mono/stereo, 16-bit decoded samples, 8–48 kHz. Long/Unicode paths use an unchanged compressed cache copy. WAV/MP3/FLAC use compatible cached WAV files. Defaults: five upcoming tracks ready, three previous tracks protected, 4 GiB soft cache limit; protected tracks may exceed it.
+
+In a loaded republic, open Settings → Other → Scripts (0101 icon), select Red Wolf Radio and confirm the green checkmark. One small movable player updates the song name automatically. Four icons: Previous, Restart, Play/Pause, Next. Hover to see the action name. Previous goes back immediately. Close with X without stopping music; reopening centers the window.
+
+Keyboard: Ctrl+Shift+Right = Next; Ctrl+Shift+Left = restart, then a quick second press = Previous; Ctrl+Shift+Down = pause/resume. Shortcuts are configurable in the INI. Navigation preserves pause.
+
+[Display] NativeSongPopup=true enables the player. The optional five-second title notification is off by default; ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages. Existing INI preferences are preserved. Back up settings before force-refresh or unsubscribing.
+
+No music files are included. Source music is preserved. Code: GPL-3.0-only. Sangie artwork is included with permission under separate terms. Not affiliated with the game, publisher, Valve or RML authors.
+
+Source and English/Russian instructions:
+https://github.com/YellowWaff/RedWolfRadio
+
+РУССКИЙ
+
+Red Wolf Radio 1.0.0 — своя музыка в WRSR. Требуются Windows x64, WRSR 1.1.1.9 и Republic Mod Loader 1.0.1. Запускайте через RML; включайте только одну копию плагина.
+
+WAV, MP3, FLAC и XWMA читаются из папки «Музыка» или пути в plugin/RedWolfRadio.ini. Можно включить Music рядом с DLL. Сканирование — при каждом запуске; обложки игнорируются. Оригинальный саундтрек можно сохранить, отключить или исключить отдельные треки.
+
+XWMA играет без преобразования в WAV: профиль WMAudio2, 1–2 канала, 16-битные декодированные отсчёты, 8–48 кГц. Длинные пути и кириллица используют неизменённую копию в кэше. WAV/MP3/FLAC кэшируются как WAV. По умолчанию готовы 5 следующих треков, защищены 3 предыдущих; мягкий лимит кэша 4 ГиБ может быть превышен защищёнными треками.
+
+В республике: Настройки → Другое → Сценарии (0101) → Red Wolf Radio → зелёная галочка. Маленькое перемещаемое окно само обновляет название. Значки слева направо: предыдущая, сначала, играть/пауза, следующая. Наведение показывает подсказку. Закрытие не останавливает музыку; повторное открытие — в центре.
+
+Ctrl+Shift+Right — следующий; Ctrl+Shift+Left — сначала, быстрое второе нажатие — предыдущий; Ctrl+Shift+Down — пауза. Сочетания настраиваются; переключение сохраняет паузу.
+
+В [Display]: NativeSongPopup=true включает плеер; Language=ru — русский язык. Пятисекундное уведомление по умолчанию выключено; ShowTrackName=true включает его. Старые настройки сохраняются. Перед принудительным обновлением или отменой подписки сохраните копию INI.
+
+Музыка не включена; исходные файлы не изменяются. Код GPL-3.0-only. Персонаж Sangie: изображения с разрешения, на отдельных условиях. Проект неофициальный. Русская инструкция: README.ru.md по ссылке выше.

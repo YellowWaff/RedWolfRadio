@@ -2,6 +2,57 @@
 
 Tested environment: Workers & Resources: Soviet Republic 1.1.1.9, Republic Mod Loader 1.0.1, Windows x64. Both development builds below use the same verified executable, engine, and runtime hashes enforced by the plugin.
 
+## Native popup prototype — October 12, 2026
+
+Built and installed **1.0.0-popup1** into local Development item `900001`. DLL SHA-256: `091097e68f1397ed619f6179be1c3be524253630bc899a0a8d7e80d7ac1960a3`. The game, engine and RML runtime hashes were rechecked against the existing baseline before installation. The game was closed; no game session was launched during this installation.
+
+The full `build.ps1` suite passed, including the new `native_song_popup` suite. Its tests exercise the real private executable continuation during a fake host's installation callback, proving forwarding is available before the host returns. They also check the nine-argument ABI, exact caller/marker matching, unchanged unrelated calls and return/last-error values, unknown-owner/callsite refusal before hook requests, source-name snapshots independent of the HUD/cache, busy/empty/loading/paused/playing states, English/Russian labels, percent/control sanitization and 250-unit UTF-16 bounds across surrogate boundaries. Independent code review found the initial hook-publication race; the reviewed fix publishes the private RX continuation atomically before installation. Automated tests do not establish actual game dialog behavior or Pyrois compilation.
+
+Installation added one self-contained script and its icon/metadata registration, **Red Wolf Radio: Now playing**, and replaced only the local Development DLL and INI. The INI has `NativeSongPopup=true`, `ShowTrackName=false`, `Language=en`; the two-track external XWMA test path and `Mode=none` are preserved. RML's existing Default selection remains unchanged and enables only the local radio copy. Installed file hashes were read back against the manifest, and RML configuration plus subscribed public DLL/INI/metadata were confirmed unchanged.
+
+The popup is a snapshot: fully close it before reopening to refresh. This diagnostic build displays ASCII `%` as `[percent]`, without altering source filenames. The script's fallback message appears when the bridge is unavailable. Placement, Cyrillic glyph appearance, current-track/state accuracy in the actual dialog, modal behavior, other-dialog coexistence and normal relaunch remain user acceptance gates. No movable-player functionality is claimed.
+
+Backups and a hash-checked restore script are in `evidence/install-native-popup-20261012-193449-364/`. The reproducible script and focused acceptance steps are under `prototype/native-popup/`. The prototype has not been published or included in the release packaging flow.
+
+## 1.0.0-rc1 local candidate — October 10, 2026
+
+DLL SHA-256: `6fb31638ec14ad15c572118a88629c38379e351e8676ab4b5461d6d631ee2bcb`.
+
+The full build passes the existing converter, forwarding/scheduler, hotkey, voice-control, music-control and isolated source-path suites. New native/display acceptance covers unchanged direct XWMA, compressed Unicode-path copies, digest-checked cache reuse and repair, malformed chunk/packet rejection, nondecreasing padding packets, source timestamp preservation, owned-cache enumeration, Unicode/percent filenames, and actual-start notification lifecycle. Rendering tests use fake game resources and verify the optional ForceNodes callback, native fallback, unknown-owner refusal, five-second expiry, editable display defaults and last-error preservation. These are automated checks, not live render/audio acceptance.
+
+The XWMA validator also inspected all **33** files in the installed game's Music folder read-only: **33 accepted, 0 rejected**. Two files repeat the last `dpds` count for a padding packet; the validator was corrected accordingly. This corpus is WMAudio2 stereo/48 kHz. No audio fixtures from the game or another Workshop author are redistributed. No other music Workshop item with XWMA was present locally for a broader corpus test.
+
+Current installed binary hashes were rechecked and still match the enforced baseline:
+
+- EXE: `296644a9f207d609031fc2ae73fed2dcb34619a1d55a35d1c7b51965ce6841b8`.
+- Engine: `65fcb6845c3cb7c25a22121f25904a855ea88657e31a3b50a15adac26e231516`.
+- RML runtime: `761ca3aee81c77034059258310e5eb4e3df14f94d21d030a96b9665879fd19d0`.
+
+API research used RML revision `57e567e5cccaa3c38aee7e9d599d2443d2460b10` and ForceNodes revision `7cd8c8e82ace5f7ac08ac28b7975ba19115cdef2` (version 1.8.0), plus the matching local game disassembly. RML API4 config reads raw UTF-8 and skips bilingual comments. ForceNodes publishes its frame service in Init, before Start, making optional callback registration available to this plugin. A standalone fallback requires the verified untouched 14-byte frame prefix.
+
+English/Russian JPEG guides were visually inspected for wording, layout, black body text and square arrow keycaps. English: 635,833 bytes; Russian: 662,842 bytes, both 1536×1024 and below 2 MB. The Russian guide's large title and game-name subtitle are translated. Both upper-left Sangie logos were restored using the original high-resolution artwork as reference to remove faceted shading. Independent visual review found improved logo detail with no text regressions. Translated INI help, README and Workshop descriptions are prepared locally. The public description and subscribed DLL were not changed. A native-speaker copy review remains useful before publication.
+
+**Outstanding after the October 11 tests below:** resolve HUD positioning/visibility at smaller resolutions, representative other-Workshop XWMA files, and a 1.0 mixed-library regression. The direct/copied routes, visible ASCII/Cyrillic filenames, natural transitions, current plugin coexistence, latest normal exit, five-second expiry, Russian HUD-label/display-toggle settings, pause/resume and music-volume controls are now covered by logs and/or the user acceptance described below. See [TESTING-1.0.md](TESTING-1.0.md). Final 1.0 publication is gated on the remaining user acceptance.
+
+## 1.0.0-rc1 external XWMA and HUD first pass — October 11, 2026
+
+Installed into local Development item `900001`; the subscribed and separate authoring copies stayed disabled. The latest runtime log loaded exactly one Red Wolf Radio instance with the candidate hash above. The user reported hearing both songs, seeing the Russian filename and `RWR TEST 100%`, natural track endings/transitions, and working Next/Previous controls. These two fixtures are unchanged copies of game music in a separate external folder; familiar vanilla audio is expected and does not indicate the original-source playlist was enabled.
+
+- Runtime preparation recorded `direct native XWMA` for the ASCII/percent filename and `unchanged XWMA cache copy` for the Cyrillic filename in a subfolder. Originals mode was `none`, with all 33 originals ineligible.
+- Startup recorded 2 native custom XWMA tracks, 0 WAV conversions, 1 compressed cache hit and 0 rejected inputs. Compared with the pre-install inventory, the shared cache gained only one 2,819,478-byte XWMA, byte-identical by SHA-256 to the Cyrillic source; no WAV entries were added or modified. Both original game files and their external test copies still match their installation hashes.
+- The latest trace completed the Cyrillic track in approximately 116.278 seconds (expected 116.267) and the ASCII track in 111.962 seconds (expected 111.957), then selected the Cyrillic track again. Later rapid changes correspond to applied hotkeys.
+- Next was applied four times and Previous twice in the latest trace. The first Previous restarted the current track; another 0.861 seconds later selected the prior track. Across all three retained sessions there were no failed-load timeout events or dropped diagnostic events; the middle session's 25 rapid changes were applied Next commands.
+- The HUD registered with the ForceNodes frame service while the user's other enabled plugins loaded. Actual name visibility is user-reported; logs do not establish visual placement, five-second disappearance or glyph quality.
+- Three separate traces establish relaunch use. The latest session exited normally with code `0x0` after 4m26.972s. Earlier exit reports were overwritten. No Red Wolf Radio errors were found in the retained latest runtime log.
+
+Pause/resume and deliberate music-volume adjustment were not established in these traces. The INI remained `ShowTrackName=true`, `Language=en`: a Cyrillic source filename does not establish the Russian HUD-label setting. No settings were changed during this review. Evidence is retained locally in `evidence/acceptance-1.0-xwma-20261011-183952/` (three traces, runtime/session logs, runtime report, INI and cache comparison).
+
+### Follow-up display and playback acceptance — October 11, 2026
+
+The user subsequently confirmed five-second title disappearance, pause/resume, game music-volume adjustment, the Russian HUD label with `Language=ru`, and hiding titles with `ShowTrackName=false`. These follow-up results are user-reported; no new per-setting log or screenshot verification is claimed.
+
+The user also reported a positioning defect at 1440×1080 and smaller resolutions: menus/bars obscure most of the title. The current renderer uses an X offset of 20 UI-scaled pixels and Y at 78% of viewport height. It reads live viewport dimensions and UI scale but does not avoid menu rectangles. The user subsequently prioritized Sangie's simpler on-demand current-song menu idea before Jess's movable player fallback; the earlier positioning-settings recommendation is superseded. Static inspection found a concrete Script-menu/native text-dialog boundary at `SOVIET64.exe+0x6ee2a0`, with synchronous UTF-16 copying, but no menu feature is implemented or live-tested yet. See `ARCHITECTURE-DECISION.md` and `evidence/menu-hook-research/` for the bounded prototype plan and unresolved rendering/input behavior. Keep the smaller-resolution display issue open before release.
+
 ## Large-library playback — September 19, 2026
 
 Build: `0.9.0-dev-bounded-cache`, DLL SHA-256 `5bed21c229ba85eec774e54a02056ec73cca572cfbd0b4ba36c48e1cecdd4234`.
@@ -33,7 +84,7 @@ The automated suites cover configuration parsing, duplicate and disabled binding
 ## Remaining coverage
 
 - The shortcuts run in a loaded republic; main-menu control is not implemented.
-- Arbitrary external XWMA files remain disabled pending compatibility validation. Original game XWMA playback was verified in earlier work.
+- The public 0.9.0 build rejects external XWMA. The 1.0.0-rc1 candidate enables validated WMAudio2; audible external playback still needs acceptance. Original game XWMA playback was verified in earlier work.
 - WAV, FLAC, and MP3 conversion have automated fixture coverage and earlier user playback tests; broader input variants remain useful release coverage.
 - Hotkey remapping, disabled bindings, and focus gating have automated coverage and September 20 user-reported acceptance; no separate per-case trace review was performed for that report.
 - Compatibility with other executable, engine, or RML builds is not assumed. A separate `temporary_track`/`road_traffic` startup conflict was isolated before these tests and was not a Red Wolf Radio failure.
@@ -148,3 +199,106 @@ After the update, the installed DLL matched the 0.9.0 release SHA-256 `22e3584d5
 The final Workshop payload was submitted through WRSR's green checkmark. Steam recorded manifest `6687241742565758771` and `Upload finished for workshop item 3805202523 : OK` at 20:22:18 local time. The refreshed listing showed version 0.9.0, the final settings-preservation wording, 4.916 MB, and five change notes before its visibility was changed from **Hidden** to **Public**.
 
 Commit `37a1298b3ffc9535836dcaec6521866264d5170a` and annotated tag `v0.9.0` were pushed to the public GitHub repository. The GitHub release is marked latest and contains `RedWolfRadio-0.9.0.zip` plus `RedWolfRadio-Workshop-0.9.0.zip`; its displayed SHA-256 values match the locally verified archives. An unauthenticated GitHub read confirmed that the repository is public. The Workshop page and GitHub release link to each other.
+
+## Native current-song popup prototype acceptance — October 12, 2026
+
+Build: `1.0.0-popup1`, local Development item `900001`, installed DLL SHA-256 `091097e68f1397ed619f6179be1c3be524253630bc899a0a8d7e80d7ac1960a3`.
+
+The user reported completing the popup test instructions and confirmed that the prototype works. Those instructions covered opening the native Script-menu window, closing/reopening it after song and playback-state changes, the Cyrillic and percent-containing test names, the smaller-resolution check, ordinary windows, and relaunch. Visual correctness, window size/position, dragging and per-step outcomes are user-reported rather than independently established by the logs below. The user then requested one window that refreshes automatically, less unused height, and optional Play/Pause, Next, Beginning and Previous controls. The accepted `popup1` is a snapshot window and does not provide those refinements.
+
+Two retained `popup1` traces were captured from `plugin/RedWolfRadio-logs`. Their UTC filenames fall on October 13; both sessions occurred on October 12 in America/Chicago:
+
+| Trace | Time to final completed Stop | Applied Next / Previous / Pause-or-resume | Deferred Play while paused |
+| --- | --- | --- | --- |
+| `trace-20261013-004811-32620.tsv` | 3 minutes 43.128 seconds | 4 / 0 / 1 | 1 |
+| `trace-20261013-005555-10008.tsv` | 47.767 seconds | 3 / 0 / 0 | 0 |
+
+- Both traces identify `1.0.0-popup1`, contain the two external XWMA selections, end with a completed native Stop, and record zero failed/ignored controls, failed-load timeouts or nonzero dropped-event counts. The longer trace establishes a successful pause and selection of another track while paused; it does not contain a resume or Previous command. These short sessions do not add full-track natural-transition coverage.
+- The latest runtime report contains exactly one Red Wolf Radio plugin instance with the installed hash above, API 4, ten successful hooks and zero hook failures. Its native popup hook is active at `SOVIET64.exe+0x6EE2A0`; the latest runtime log records one popup snapshot request at 19:56:28.776 local time. The preceding session's runtime log was overwritten, so no total popup-request count is claimed across both sessions.
+- The latest runtime log records PID `10008` exiting normally with code `0x0` after 49.427 seconds at 19:56:44.904 local time. The session summary reports zero final hook-chain audit issues. No Red Wolf Radio error was found; an unrelated helicopter-plugin informational warning about its native menu classification mask remains in the log.
+- The captured INI has `NativeSongPopup=true`, `ShowTrackName=false`, `Language=en`, the external XWMA test folder, originals mode `none`, and cache history protection set to three tracks. Runtime preparation reports direct ASCII-path XWMA plus the unchanged compressed Cyrillic-path cache copy, zero WAV conversions, one cache hit and zero rejected inputs.
+
+Evidence is retained locally under ignored `evidence/acceptance-native-popup-20261012/`: both traces, current runtime/session logs, runtime report, INI, source/copy hash manifest and parsed trace summary. No installed files were changed during this acceptance review. Automatic refresh, compact height, UI buttons and any changes to native-window lifetime remain untested until implemented.
+
+## Compact live player implementation — 2026-10-12
+
+Candidate `1.0.0-player1`, DLL SHA256 `1987FEF7353B4715CB104E4B923ADA86924358F4FB00D8714C6E0729B2FEA670`.
+
+- Full `build.ps1` suite passed: converters, forwarding, hotkeys, voice control, music commands/history, native XWMA/display, popup adapters, compact native UI, and source discovery/preservation.
+- Native UI tests exercise ownership/foreign forwarding, all four commands, one-shot click consumption, covered-window/input gates, dragged mouse capture, viewport changes, close/minimized geometry, literal Unicode/percent measurement/printing, snapshot throttling and panel state restoration. Integration probes execute each verified private continuation prologue and confirm ABI/last-error preservation before hook publication.
+- Local installation verified identical DLL bytes at development item `900001`; rollback in `evidence/install-native-popup-20261012-201614-071`. Existing source folder, disabled HUD, enabled native player, RML configuration and public subscribed files preserved.
+- Startup succeeded: RML reports the live compact player and all three additional frame/body/hit hooks installed. Further gameplay acceptance is recorded below after UI testing.
+
+## Compact live player acceptance — October 12, 2026
+
+Build: `1.0.0-player1`, local Development item `900001`, installed DLL SHA-256 `1987fef7353b4715cb104e4b923ada86924358f4fb00d8714c6e0729b2fea670`.
+
+The user confirmed that the compact player moves normally, updates the song title automatically, keeps only one window when opened repeatedly, and can be closed and reopened without interrupting music. The user also accepted the `1440x1080` layout and confirmed that another native window covering the player blocks its controls. The window returns to the center when reopened; position persistence is not implemented. These visual, interaction and audible outcomes are user-reported, rather than inferred from the playback traces. Earlier live checks exercised the four buttons, paused navigation, literal percent text and Cyrillic names.
+
+Three completed `player1` traces corroborate playback and control behavior. Filenames are UTC; the sessions took place October 12 in America/Chicago:
+
+| Trace | Time to final completed Stop | Selections | Applied Next / Previous-track / Restart / Play-pause |
+| --- | --- | --- | --- |
+| `trace-20261013-011621-30352.tsv` | 9 minutes 56.323 seconds | 13 | 3 / 2 / 3 / 4 |
+| `trace-20261013-012647-19316.tsv` | 1 minute 26.108 seconds | 5 | 1 / 1 / 1 / 2 |
+| `trace-20261013-013021-35652.tsv` | 1 minute 8.517 seconds | 2 | 0 / 0 / 0 / 0 |
+
+- All three traces identify `1.0.0-player1`, end in a completed native Stop, and record zero failed/ignored controls, failed-load timeouts or nonzero dropped-event counts. Selections include restarts and navigation, and are not unique-song counts. `Previous-track` is the button's direct history action; the keyboard Previous shortcut is unchanged.
+- The first trace records two deferred native Play calls while user-paused, followed by successful resume of the selected track. It also contains three uninterrupted natural transitions: `RWR Test 100%` after 111.974 seconds, the Cyrillic fixture after 116.275 seconds, and `RWR Test 100%` after another 111.977 seconds. No control or Stop call interrupts those three playback intervals.
+- The latest runtime report contains exactly one Red Wolf Radio instance, the expected hash, API 4, thirteen successful hooks and zero hook failures. The compact frame/body/hit hooks and scoped song-window adapter are active. Bootstrap completed with status zero.
+- The latest runtime log records three native-window requests. The user's one-window and close/reopen confirmations establish their visible behavior; request counts alone do not establish window lifetime or duplication.
+- At **20:31:31.493 local time**, RML records WRSR PID **35652** exiting normally with code **0x0** after **1 minute 12.193 seconds**. The session summary reports zero final hook-chain audit issues. The earlier runtime reports were overwritten on relaunch, so their exit codes are not claimed from the current report; both earlier traces retain completed Stop calls.
+- No WARN/ERROR/FATAL severity entry was found in the latest runtime log. The unrelated helicopter plugin still logs an INFO-level warning about an unavailable native menu classification mask. No Red Wolf Radio error was found.
+- The captured configuration retains the XWMA fixture folder, originals mode `none`, `NativeSongPopup=true`, `ShowTrackName=false` and `Language=en`. Latest startup reports two native custom XWMA files, zero WAV conversions, one cache hit, zero rejected inputs and a well-formed configuration.
+
+Evidence is retained locally under ignored `evidence/acceptance-native-player-20261012/`: three completed traces, current runtime/session logs, runtime report, INI, matching source/copy hash manifest, parsed trace summary and evidence notes. Earlier files explicitly marked `live` are partial snapshots. This review changed no installed files or public package. The compact player is accepted locally; final package installation remains a separate release check. Another long soak is optional unless further playback or UI changes justify one.
+
+## Release candidate preparation — October 12, 2026
+
+Build `1.0.0-rc2`, DLL SHA-256 `CEF906B6047E1F8D451B41443F63951D8D91D4D07EC0C165559CEB104377ACF6`.
+
+- Full `build.ps1` suite passed after adapting the optional HUD lifecycle test to explicitly enable the notification. The new missing-key defaults enable the native player and disable the transient HUD; tests also verify preservation of explicit true/false settings. Playback and native player implementations are unchanged from accepted `player1`.
+- English/Russian instructions and listing drafts now explain the compact player, its Script-menu entry, all four buttons and the distinct keyboard Previous behavior. Both updated JPEG guides were visually reviewed and are below Steam's 2 MB limit (493,450 bytes English; 520,848 bytes Russian).
+- Packaging now includes the companion script, matching menu icon, and a single metadata registration fragment in both layouts. The fragment is merged into existing registered metadata rather than replacing the item ID or visibility. Runtime-file checksums and embedded-version checks guard the staged artifacts.
+- The accepted `player1` DLL remains installed in local Development item `900001`; its hash was rechecked unchanged. This rc2 binary has passed automated tests but has not yet received an in-game package smoke test. No public Workshop or GitHub update was submitted.
+
+Build and package evidence is retained under ignored `evidence/release-1.0.0-rc2/`.
+
+## Small icon player implementation — October 13, 2026
+
+Local build `1.0.0-player2`, DLL SHA-256 `0B566841F4C88853E8F81BABE5C425A9FE8C34D2F9F234A40DCC06754608FABA`.
+
+- Reduces the frame from 500x180 to 360x128 UI units (48.8% less area), with a 26-unit draggable header and two filename lines. Four 44x28 targets contain geometric Previous, Restart, Play/Pause and Next icons. Hover descriptions replace the title inside the existing header, in English or Russian.
+- Uses the existing verified rectangle/white-texture drawing primitives. Fixed 16-row triangles bound icon drawing work regardless of scale. No additional hooks, imports, textures or symbol-font assumptions were introduced; playback/control implementation is unchanged.
+- Full automated build suite passed. Updated UI checks cover compact frame and usable targets, literal filename refresh, English/Russian hover captions, paused Play versus active Pause geometry, empty-title state fallback, layout bounds, cached measurements, native ownership/input consumption, drag/close/minimized geometry and shared panel restoration. Independent static review found no blocker.
+- Installed into local Development item 900001 with the game closed. Installed DLL matches the build hash. The installer retained the music path and loader choices, kept the native player enabled and timed HUD hidden, and confirmed subscribed files were unchanged. Backup and scoped rollback script are at `evidence/install-native-popup-20261013-191903-360/`.
+- In-game visual comfort and the new icon/header layout still need focused user acceptance. Previous successful text-button acceptance does not establish that the new presentation is readable. Earlier rc2 archives still contain the accepted larger presentation; publication/repackaging is pending this refinement.
+
+Full build output: ignored `build/player2-build.log` and a retained copy in the installation evidence folder.
+
+## Small icon player acceptance — October 13, 2026
+
+Build: `1.0.0-player2`, local Development item `900001`, installed DLL SHA-256 `0b566841f4c88853e8f81babe5c425a9fe8c34d2f9f234a40dcc06754608faba`.
+
+The user accepted the smaller icon layout and authorized proceeding toward final 1.0 publication. Visual comfort and layout acceptance are user-reported. The following completed traces corroborate playback-control processing; they do not independently establish pixel placement or audible quality. Their UTC filenames fall on October 14, while the sessions occurred October 13 in America/Chicago.
+
+| Trace | Time to final completed Stop | Selections | Applied Next / Previous-track / Restart / Play-pause |
+| --- | --- | --- | --- |
+| `trace-20261014-002221-50880.tsv` | 2 minutes 52.624 seconds | 7 | 3 / 1 / 1 / 4 |
+| `trace-20261014-002538-40820.tsv` | 2 minutes 32.516 seconds | 8 | 2 / 3 / 1 / 2 |
+| `trace-20261014-002850-53420.tsv` | 1 minute 21.223 seconds | 2 | 0 / 0 / 0 / 0 |
+
+- All three traces identify `1.0.0-player2`, end with a completed native Stop, and record zero failed/ignored controls, failed-load timeouts or nonzero dropped-event counts. These sessions contain successful pause/resume, Next, direct Previous-track and Restart commands. Selection counts include navigation and restarts. No deferred Play event is present.
+- These focused sessions do not contain a complete natural track ending. Full natural transitions are established by the earlier `player1` evidence above; this acceptance does not claim a new long-duration audio test.
+- The latest runtime report contains exactly one Red Wolf Radio instance with the installed candidate hash above, API 4, thirteen successful hooks and zero hook failures. Bootstrap completed with status zero.
+- At **19:30:13.315 local time**, RML records WRSR PID **53420** exiting normally with code **0x0** after **1 minute 22.834 seconds**. The session summary reports zero final hook-chain audit issues. Earlier process exit codes were overwritten on relaunch; their traces retain completed Stop events.
+- No WARN/ERROR/FATAL severity entry or Red Wolf Radio error was found in the latest runtime log. The unrelated helicopter plugin emits an INFO-level warning about its unavailable native menu classification mask. Latest startup reports two native custom XWMA files, zero WAV conversions, one cache hit, zero rejected inputs and a well-formed configuration. The final session records one native-player request.
+- The captured INI retains the external XWMA fixture folder, originals mode `none`, `NativeSongPopup=true`, `ShowTrackName=false` and `Language=en`.
+
+Three completed traces, current runtime/session logs, runtime report, INI, matching source/copy hash manifest, parsed totals and evidence notes are retained under ignored `evidence/acceptance-native-player2-20261013/`. No source code or installed files were changed by this review. This acceptance applies to the `player2` candidate; final `1.0.0` artifact hashes and publication evidence are recorded separately.
+
+## Final 1.0.0 build — October 13, 2026
+
+DLL SHA-256 `A519B312B2DF923B3885BA3C7849FFC5FCB5056E1782382B1D3010D16FC75CC2`. The only implementation change since accepted `player2` is the release version string. The full automated build suite passed, including converter, forwarding, scheduler/cache, controls, source preservation, native XWMA/display, native popup ABI and compact icon UI tests. Build output and PE report are retained under ignored `evidence/release-1.0.0/`.
+
+The final package includes portable default settings, the companion Script action/icon/registration fragment, English/Russian documentation and guide JPEGs, approved artwork and license notices. Archive verification, registered-item upload and downloaded-payload checks are recorded separately as they complete; the successful build itself is not evidence of publication.
