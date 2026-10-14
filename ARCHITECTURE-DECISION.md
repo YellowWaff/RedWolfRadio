@@ -116,7 +116,7 @@ Miniaudio capability sources: [project repository](https://github.com/mackron/mi
 
 ## Current-song menu investigation — October 11, 2026
 
-Following successful 1.0 XWMA/display tests, the user reported that the temporary title is obscured by game menus at 1440×1080. Sangie's preferred first investigation is an on-demand current-song display in an existing game menu/window. Jess's movable player window is the fallback if there is no reasonably small native route. The user explicitly confirmed this order. Neither resolution presets nor a custom movable player has been implemented.
+Following successful 1.0 XWMA/display tests, the user reported that the temporary title is obscured by game menus at 1440×1080. The requested first investigation is an on-demand current-song display in an existing game menu/window. A movable player window is the fallback if there is no reasonably small native route. The user explicitly confirmed this order. Neither resolution presets nor a custom movable player has been implemented.
 
 Verified locally:
 

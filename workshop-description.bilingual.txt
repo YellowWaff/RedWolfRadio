@@ -10,9 +10,11 @@ In a loaded republic, open Settings → Other → Scripts (0101 icon), select Re
 
 Keyboard: Ctrl+Shift+Right = Next; Ctrl+Shift+Left = restart, then a quick second press = Previous; Ctrl+Shift+Down = pause/resume. Shortcuts are configurable in the INI. Navigation preserves pause.
 
-[Display] NativeSongPopup=true enables the player. The optional five-second title notification is off by default; ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages. Existing INI preferences are preserved. Back up settings before force-refresh or unsubscribing.
+[Display] NativeSongPopup=true enables the player. The optional five-second title notification is off by default; ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages.
 
-No music files are included. Source music is preserved. Code: GPL-3.0-only. Sangie artwork is included with permission under separate terms. Not affiliated with the game, publisher, Valve or RML authors.
+Before any update, back up your customized RedWolfRadio.ini outside Steam and game folders. The ordinary 1.0 download replaced it with the shipped template; the 0.9.0 test had retained it. Check settings afterward and restore your backup with the game closed if needed.
+
+No music files are included. Source music is preserved. Code: GPL-3.0-only. Character artwork is used with permission under separate terms. Not affiliated with the game, publisher, Valve or RML authors.
 
 Source and English/Russian instructions:
 https://github.com/YellowWaff/RedWolfRadio
@@ -29,6 +31,8 @@ XWMA играет без преобразования в WAV: профиль WMA
 
 Ctrl+Shift+Right — следующий; Ctrl+Shift+Left — сначала, быстрое второе нажатие — предыдущий; Ctrl+Shift+Down — пауза. Сочетания настраиваются; переключение сохраняет паузу.
 
-В [Display]: NativeSongPopup=true включает плеер; Language=ru — русский язык. Пятисекундное уведомление по умолчанию выключено; ShowTrackName=true включает его. Старые настройки сохраняются. Перед принудительным обновлением или отменой подписки сохраните копию INI.
+В [Display]: NativeSongPopup=true включает плеер; Language=ru — русский язык. Пятисекундное уведомление по умолчанию выключено; ShowTrackName=true включает его.
 
-Музыка не включена; исходные файлы не изменяются. Код GPL-3.0-only. Персонаж Sangie: изображения с разрешения, на отдельных условиях. Проект неофициальный. Русская инструкция: README.ru.md по ссылке выше.
+Перед любым обновлением сохраните копию своего RedWolfRadio.ini за пределами папок Steam и игры. Обычная загрузка 1.0 заменила его шаблоном, хотя в тесте 0.9.0 он сохранился. Проверьте настройки после обновления; при необходимости закройте игру и восстановите копию.
+
+Музыка не включена; исходные файлы не изменяются. Код GPL-3.0-only. Изображения персонажа использованы с разрешения, на отдельных условиях. Проект неофициальный. Русская инструкция: README.ru.md по ссылке выше.

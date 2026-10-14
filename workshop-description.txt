@@ -8,15 +8,15 @@ XWMA uses the game's music loader without conversion to WAV. The supported WMAud
 
 In a loaded republic, open Settings → Other → Scripts (the 0101 icon), select Red Wolf Radio, and confirm with the green checkmark. One compact, draggable player shows the source filename without extension and refreshes automatically when the song changes. Its 360×128 UI-unit frame scales with the game. The four icon buttons are Previous, Restart, Play/Pause and Next; hover over an icon to see its action name in the title bar. Previous goes directly to the preceding track. Closing the window leaves music playing. Reopening starts it in the center; its position is not saved.
 
-The player is enabled by default with [Display] NativeSongPopup=true. The separate five-second title notification is optional and off by default: ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages; filenames are unchanged. Existing INI preferences are preserved. Add or edit these keys in the existing Display section.
+The player is enabled by default with [Display] NativeSongPopup=true. The separate five-second title notification is optional and off by default: ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages; filenames are unchanged. Add or edit these keys in the existing Display section.
 
 During gameplay: Ctrl+Shift+Right for Next; Ctrl+Shift+Left to restart, then a quick second press for Previous; Ctrl+Shift+Down to pause/resume. Shortcuts are configurable and work while the game is the foreground application. Track navigation preserves a user pause. Shortcuts are inactive on the main menu.
 
 Defaults prepare five upcoming tracks, protect three previous tracks, and use a 4 GiB soft cache limit. Protected tracks may exceed the limit. Up to 64 playback entries are remembered during a launch. No music is included. English and Russian INI help and documentation are included.
 
-Edit plugin/RedWolfRadio.ini for folders, original exclusions, cache settings, shortcuts, the player and the optional title notification. Keep an external backup before RML force-refresh, unsubscribe or manual replacement.
+Edit plugin/RedWolfRadio.ini for folders, original exclusions, cache settings, shortcuts, the player and the optional title notification. Back up your customized INI outside Steam and game folders before any update, including ordinary Workshop updates. The 1.0 download replaced it with the shipped template, although the earlier 0.9.0 test had retained it. Check settings afterward and restore your backup with the game closed if needed.
 
 Source, documentation and downloads:
 https://github.com/YellowWaff/RedWolfRadio
 
-Character: Sangie, included with permission; separate artwork terms apply. Code is GPL-3.0-only. Not affiliated with 3DIVISION, Hooded Horse, Valve or the Republic Mod Loader authors.
+Character artwork is used with permission; separate artwork terms apply. Code is GPL-3.0-only. Not affiliated with 3DIVISION, Hooded Horse, Valve or the Republic Mod Loader authors.

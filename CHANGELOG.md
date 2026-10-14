@@ -6,7 +6,8 @@
 - Add a 360x128 movable player from Scripts (0101), with live source filenames and Previous, Restart, Play/Pause and Next icons. Hover descriptions appear in the title bar.
 - Keep keyboard Previous's restart-first behavior; the player has separate direct Previous and Restart actions. Navigation while paused stays paused.
 - Add English/Russian player descriptions, bilingual INI help, Russian documentation/listing text, and English/Russian graphic guides.
-- Enable the Script-menu player by default. Keep the optional five-second HUD notification off by default and preserve explicitly configured INI settings.
+- Enable the Script-menu player by default. Keep the optional five-second HUD notification off by default; read explicit values from the INI present at launch.
+- Correct update guidance after the ordinary 1.0 Workshop download replaced a customized INI with the shipped template. Back up `RedWolfRadio.ini` outside Steam and game folders before every update; the earlier 0.9.0 preservation test is not a general guarantee.
 - Bundle the companion script, menu icon and registration instructions in both release archives.
 - Validate XWMA, source labels, smaller-player layout, all controls, input overlap, 1440x1080 readability and normal shutdown/relaunch through automated tests, user acceptance and log review.
 

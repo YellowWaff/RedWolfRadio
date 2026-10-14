@@ -45,7 +45,7 @@ The Scripts-menu player also needs its companion script, icon, and script regist
 
 Keep the INI filename identical to the DLL stem so Republic Mod Loader can expose it through **Open settings**. The plugin creates the file on first launch if it is absent. Changes take effect on the next game launch.
 
-Ordinary Steam Workshop updates preserve a customized `RedWolfRadio.ini`; the 0.9.0 update test retained the file byte-for-byte while replacing the DLL. Keep a backup outside the Workshop and game folders before using RML's force-refresh, unsubscribing, or manually replacing files because those operations may recreate the item folder. Preserve any music you added to the optional `plugin/Music` folder separately. The shared audio cache does not need to be moved.
+Keep a backup of your customized `RedWolfRadio.ini` outside Steam and game folders before **any update**, including ordinary Workshop updates, RML force-refresh, unsubscribing, or manual replacement. The 0.9.0 test retained the INI, but the ordinary 1.0 download replaced it with the shipped template. After updating, check your music path and preferences; with the game closed, restore your backup if needed. Preserve any music you added to the optional `plugin/Music` folder separately. The shared audio cache does not need to be moved.
 
 ## Configure
 
@@ -93,7 +93,7 @@ Environment variables such as `%USERPROFILE%\Music` are expanded when the plugin
 
 `Display.NativeSongPopup=true` enables the Scripts-menu player; it does not open the window automatically. Set it to `false` to disable the player on the next launch. `ShowTrackName=true` separately enables the five-second gameplay notification, which is off by default. `Language=ru` translates the player's hover descriptions, empty-player status, and notification label into Russian; filenames retain their original spelling, including Cyrillic. Very long names are shortened on screen.
 
-Existing INI files and explicit preferences are preserved. Add or edit the keys under the existing `[Display]` section to change them; do not create a second copy of the section. When a key is absent, the defaults are `NativeSongPopup=true`, `ShowTrackName=false`, and `Language=en`. An older INI with `ShowTrackName=true` keeps the notification enabled until you change it.
+The plugin uses the values in the INI present at launch; this does not protect the file from replacement by Steam. Add or edit keys under its existing `[Display]` section; do not create a second copy of the section. When a key is absent, the defaults are `NativeSongPopup=true`, `ShowTrackName=false`, and `Language=en`. If your restored INI contains `ShowTrackName=true`, the notification remains enabled until you change it.
 
 The optional HUD uses a ForceNodes frame callback when available, or the verified native gameplay frame boundary. An unknown hook owner disables only the HUD before a hook request is made.
 
