@@ -67,16 +67,33 @@ Upload the approved image as the Steam listing preview and include `previewimage
 
 The packaging script stages the DLL, defaults, documentation, artwork, companion action/icon, and registration fragment. It checks that the DLL's embedded version matches `VERSION` and the package label; it also verifies the required runtime files against their sources and writes their hashes into `SHA256SUMS.txt`. Both archives include the companion files, current English/Russian guides, and canonical listing descriptions (`workshop-description.txt` and `workshop-description.ru.txt`). Internal acceptance instructions and superseded listing drafts are not included. It does not create `workshopconfig.ini`, register an item with Steam, or publish it. Merge the fragment and test the resulting authoring item before treating the Workshop archive as a finished upload. A locally built `1.0.0` archive alone does not establish that the public update has been uploaded or downloaded successfully; those results are recorded separately in [VALIDATION.md](VALIDATION.md).
 
-## Updating the registered item to 1.0
+## 1.0.1 GitHub downloads — November 11, 2026
 
-The current GitHub downloads for plugin version `1.0.0` are the explicit **`docs-r1` documentation revision**. They correct update guidance and public descriptive text without changing the DLL, runtime files or default INI. The source tag `v1.0.0` remains at the original release commit. The older ZIP assets are no longer served from the GitHub release; their original bytes and hashes remain in local historical evidence.
+[Red Wolf Radio 1.0.1](https://github.com/YellowWaff/RedWolfRadio/releases/tag/v1.0.1) was published on GitHub at **20:33:05 America/Chicago on November 11, 2026**. Source commit `7a9558e7cedd98dd74ff11a7c3fe2b8a83c7ec11` and tag `v1.0.1` identify the release source. The plugin DLL remains the locally tested SHA-256 `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`.
 
 | Current download | SHA-256 |
+|---|---|
+| `RedWolfRadio-1.0.1.zip` | `c040cd6d0b94ad4085599146ad6fb58f143441f0576e5123cc5482788eb574ec` |
+| `RedWolfRadio-Workshop-1.0.1.zip` | `d43aaa275c9202aa25f78eac155a742af839f2aa7a58b2380c2a4c4edc20176e` |
+
+Both archives contain twenty-four files. GitHub's asset digests and the bytes downloaded from the public release URLs match these hashes. The release archives and tag are frozen; later documentation updates on `main` do not rewrite them. Evidence is retained in `evidence/release-1.0.1/github-publication.json` and `github-public-download-verification.json`.
+
+The payload was staged into existing registered Workshop item `3805202523`, preserving its metadata and portable default INI. Steam confirmed upload `OK` at **20:37:27 America/Chicago on November 11, 2026**, manifest **`600644143637394593`**; public item metadata reports the same manifest and public visibility. The dedicated Russian description was saved at **20:43**, and the newest change note was saved and publicly verified in the default bilingual and dedicated Russian views at **20:44**. Evidence is retained in `evidence/release-1.0.1/workshop-staging.json`, `workshop-upload-log.txt`, `workshop-after-upload.json`, `workshop-upload-success.png` and `workshop-published-notes.png`.
+
+An ordinary Steam client restart detected the new manifest at **20:45:29** and completed the Workshop download with **`No Error` at 20:45:39 America/Chicago on November 11, 2026**. The installed manifest is `600644143637394593`, and the downloaded DLL matches the tested release. Of twenty-four files compared with the staged payload, twenty-two match exactly. The uploader-rewritten `previewimage.png` matches the post-upload authoring preview; the personalized INI was retained and matches the pre-publication backup. Neither difference changes the runtime payload. `SHA256SUMS.txt` describes the packaged defaults and artwork, so those two installed files are not expected to match its original package entries. Evidence: `evidence/release-1.0.1/subscriber-verification.json`, `subscriber-download-log.txt`, `subscriber-file-comparison.json` and `appworkshop_784150-after-download.acf`.
+
+The personal INI and RML configuration remained byte-for-byte unchanged, and no INI restoration was needed during this 1.0.1 update. Keep external backups before every update: this successful retention does not override the ordinary 1.0 update's observed replacement or guarantee future behavior. The frozen GitHub archives, source release commit and published tag are unchanged by these later publication records.
+
+## Historical 1.0 update and documentation revision
+
+The GitHub downloads retained for plugin version `1.0.0` are the explicit **`docs-r1` documentation revision**. They correct update guidance and public descriptive text without changing the DLL, runtime files or default INI. The source tag `v1.0.0` remains at the original release commit. The earlier ZIP assets for that version are no longer served from the GitHub release; their original bytes and hashes remain in local historical evidence.
+
+| Historical 1.0 download | SHA-256 |
 |---|---|
 | `RedWolfRadio-1.0.0-docs-r1.zip` | `b414a676ac9aba98d6b47570c194e95297248d3d88dee710f43da806ea789ec8` |
 | `RedWolfRadio-Workshop-1.0.0-docs-r1.zip` | `1f86c525569fa23459f99a4c0fdd5c47e2c0fd93adfe440fa12b25a35139dc7d` |
 
-The GitHub release's asset digests match the frozen revisions. The corresponding Workshop documentation refresh was uploaded successfully on October 13, 2026, as manifest `177600152962843204`; its ordinary subscribed download completed with `No Error`. The restored personal INI stayed byte-for-byte intact during this documentation-only update. This does not change the backup guidance: the initial 1.0 update had replaced that file. The public plugin version remains `1.0.0`. Later source documentation updates do not rewrite the frozen ZIPs. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) and [VALIDATION.md](VALIDATION.md) for publication and runtime evidence.
+The GitHub release's asset digests match the frozen revisions. The corresponding Workshop documentation refresh was uploaded successfully on October 13, 2026, as manifest `177600152962843204`; its ordinary subscribed download completed with `No Error`. The restored personal INI stayed byte-for-byte intact during this documentation-only update. This does not change the backup guidance: the initial 1.0 update had replaced that file. The public plugin version at that checkpoint was `1.0.0`. Later source documentation updates do not rewrite the frozen ZIPs. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) and [VALIDATION.md](VALIDATION.md) for publication and runtime evidence.
 
 Use the existing registered authoring project for item `3805202523`; do not create a replacement item or copy the temporary development ID. With the game closed, back up the authoring project and the subscribed personalized INI outside both item folders. Stage only the verified Workshop archive contents into the existing authoring project. Preserve its `workshopconfig.ini` and merge the companion registration line exactly once before `$END`. Keep the packaged INI portable and free of the maintainer's music paths; retain personalized test settings separately.
 

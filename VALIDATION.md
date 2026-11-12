@@ -404,3 +404,39 @@ The original RML selections scheduled fourteen plugins. Radio 1.0.1 again activa
 Game PID `51584` exited normally with code `0x0` at **20:20:32.691 America/Chicago on November 11, 2026**, after **32.239s**. Both game and RML were closed afterward. This second session is a startup/main-menu playback and shutdown check, not another full republic gameplay test or a new audible XWMA/FLAC acceptance result.
 
 The final installation audit confirms the candidate DLL remains `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`, the personal INI retains `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`, and the original RML configuration is restored byte-for-byte at SHA-256 `74f3b9120c4c8f0105df5cf2ae9f810a88959aaf1a290bb2107ea4e7c3503a8b`. Evidence is `evidence/compat-1.1.1.13/smoke-normal/runtime-final.log`, `report-final.json`, `trace-final.tsv` and `final-install-audit.json` in the compatibility evidence root. No release upload or publication is established by these local checks.
+
+### 1.0.1 GitHub publication and Workshop staging — November 11, 2026
+
+The [GitHub release v1.0.1](https://github.com/YellowWaff/RedWolfRadio/releases/tag/v1.0.1) was published at **20:33:05 America/Chicago on November 11, 2026** (`2026-11-12T02:33:05Z`). Its source commit and tag target are `7a9558e7cedd98dd74ff11a7c3fe2b8a83c7ec11`. The release is not a draft and is reported as the latest tag. Both published assets were downloaded from their public URLs and verified against GitHub's digests and the frozen local archives:
+
+| Public archive | SHA-256 |
+|---|---|
+| `RedWolfRadio-1.0.1.zip` | `c040cd6d0b94ad4085599146ad6fb58f143441f0576e5123cc5482788eb574ec` |
+| `RedWolfRadio-Workshop-1.0.1.zip` | `d43aaa275c9202aa25f78eac155a742af839f2aa7a58b2380c2a4c4edc20176e` |
+
+Each archive contains twenty-four files; the DLL remains `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`. The release archives and published tag are frozen. This publication record is a later source-documentation update, not a change to those archive bytes. Evidence: `evidence/release-1.0.1/github-publication.json` and `github-public-download-verification.json`.
+
+The payload was staged into the existing authoring project for Workshop item `3805202523`, with its metadata preserved. The staging manifest records the tested DLL, companion script/icon, artwork, documentation and portable default INI (`f4e37227f94fcade81af34b0ea43e408907bb8afe5e116cdd6c3236c2f05eccc`). The authoring backup and subscribed personal INI are retained outside the upload folders. Evidence: `evidence/release-1.0.1/workshop-staging.json`. This staging checkpoint preceded the confirmed Workshop upload recorded below; staging alone did not establish a completed Workshop update.
+
+### 1.0.1 Workshop publication and localized listing — November 11, 2026
+
+Steam's upload log records the update to existing item `3805202523` starting at **20:37:23** and finishing **`OK` at 20:37:27 America/Chicago on November 11, 2026**. The new manifest is **`600644143637394593`**. The public item metadata returns result `1`, visibility `0`, no ban, and the same `hcontent_file` manifest. Its description identifies Radio 1.0.1 and WRSR 1.1.1.13. Evidence: `evidence/release-1.0.1/workshop-upload-log.txt`, `workshop-after-upload.json` and `workshop-upload-success.png`.
+
+The upload session report identifies Radio 1.0.1 with the tested `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2` DLL, thirteen hooks, zero hook failures and status `TESMIO ACTIVE`. Other plugins caused the aggregate bootstrap status `0x400`; Radio itself remained active. Game PID `68028` exited normally with code `0x0` at **20:38:25.248**, after **4m24.951s**. Evidence: `evidence/release-1.0.1/upload-session-report.json` and `upload-session-runtime.log`.
+
+The dedicated Russian listing description was saved at **20:43**. The newest change note was saved and publicly verified in the default bilingual and dedicated Russian views at **20:44**. The public verification screenshot is `evidence/release-1.0.1/workshop-published-notes.png`.
+
+Steam was restarted normally to refresh subscribed content. The subscribed-manifest, actual download and final settings verification are recorded below; the existing manually installed matching DLL alone did not establish delivery. These later publication records do not alter the frozen GitHub archives, source release commit or published tag.
+
+### Ordinary subscribed 1.0.1 download and final settings verification
+
+After the normal Steam client restart, the Workshop log detected the server's new manifest **`600644143637394593` at 20:45:29**. The ordinary update job started at **20:45:35** and finished with **`No Error` at 20:45:39 America/Chicago on November 11, 2026**. The post-download Workshop state records that installed manifest. This establishes delivery independently of the previously installed matching DLL. Evidence: `evidence/release-1.0.1/subscriber-download-log.txt`, `appworkshop_784150-after-download.acf` and `subscriber-verification.json`.
+
+Twenty-four downloaded files were compared with the staged payload; **twenty-two match byte-for-byte**. The two explained differences are:
+
+- `previewimage.png`: the uploader rewrote the image before upload. Its downloaded SHA-256 `defa3c7e297058c6b2452df4b6add321a87f46d26cda948460ed0273865d2863` matches the post-upload authoring preview, and the logo was visually inspected. The original frozen ZIP preview remains unchanged.
+- `plugin/RedWolfRadio.ini`: Steam retained the personalized file instead of replacing it with the packaged default. Its SHA-256 `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789` matches the pre-publication backup exactly. **No manual restoration occurred.**
+
+The downloaded DLL remains the tested `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`; there is no runtime payload difference. `SHA256SUMS.txt` records the package's default INI and original artwork, not these expected installed variants. The final RML configuration also remains byte-for-byte unchanged at SHA-256 `74f3b9120c4c8f0105df5cf2ae9f810a88959aaf1a290bb2107ea4e7c3503a8b`. The per-file comparison is retained in `evidence/release-1.0.1/subscriber-file-comparison.json`, with the overall result in `subscriber-verification.json`.
+
+This ordinary 1.0.1 update retained the personal INI on this installation. It does not guarantee future settings preservation: the earlier ordinary 1.0 download replaced that file, so the backup-before-every-update guidance remains in force. The published GitHub archives, source release commit and tag remain frozen; these final publication records are later source-documentation updates.
