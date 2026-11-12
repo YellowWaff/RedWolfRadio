@@ -358,3 +358,49 @@ Of the twenty-three revised release payload entries, twenty-one downloaded files
 All sixteen downloaded Markdown, text and INI files outside runtime logs/cache were scanned: no private character-name references remain, and the previous blanket ordinary-update preservation claim is absent. The downloaded README now instructs users to back up settings before any update and check/restore their preferences afterward. The English/Russian descriptions, guides and unchanged executable were delivered in the verified payload. Public listing/gallery review was performed separately through the browser; the file audit alone does not establish web-page rendering.
 
 Final download logs, revised payload/text audits, retained personal INI and GitHub asset verification are in `evidence/release-1.0.0/smoke-subscribed/`; documentation-revision publication records are in `evidence/release-1.0.0/docs-r1/`. No further game launch was performed for this documentation-only delivery check, and the original local release archives remain unchanged.
+
+## 1.0.1 compatibility candidate — November 11, 2026
+
+Status at this checkpoint: **full build, automated suites and initial isolated in-game acceptance on 1.1.1.13 passed, including user-confirmed audible playback and normal shutdown. Relaunch with the usual plugin selections also activated Radio and exited normally. Nothing has been published.** The public release remains 1.0.0. Other plugins still report errors; the older 1.1.1.9 profile was not rerun live.
+
+The user's updated installation runs WRSR 1.1.1.13. Its existing Radio 1.0.0 log records the expected compatibility refusal before music hooks are installed. The RML runtime still matches the verified 1.0.1 baseline. Other installed plugins also report changed targets or initialization failures, so initial candidate testing isolates Radio instead of treating the entire plugin set as compatible.
+
+| Candidate/binary | SHA-256 |
+|---|---|
+| Red Wolf Radio 1.0.1 candidate DLL | `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2` |
+| WRSR 1.1.1.13 `SOVIET64.exe` | `4df5fbecc75300e3b843ae4e6426761c84ae2e989321c011c6f560be79122125` |
+| WRSR 1.1.1.13 `C3DDLL64.dll` | `5d8a0540a01170475392b4650f492582fab4ed20eec8755190a053f410247e3a` |
+| RML 1.0.1 `rml_runtime.dll` | `761ca3aee81c77034059258310e5eb4e3df14f94d21d030a96b9665879fd19d0` |
+
+### Static audit
+
+- Engine audit: all 2,218 named exports retain their archived 1.1.1.9 names, ordinals and RVAs. Current disassembly confirms the eight music entry points, path resolver `0x776d0` with its exact 18-byte prefix, loading flag `0x1dc6e1`, source voice `0x1dc7f0`, and Start/Stop vtable slots 19/20. Game Pause/Resume still adjust volume only, so the existing true-pause route remains necessary.
+- EXE audit: nine relevant ranges contain 7,464 compared archived/current instructions. The eight core ranges account for 7,256 instructions with no semantic mismatches after branch/call and RIP displacement normalization. The 208-instruction size-helper range has one expected switch-table relocation. Relevant UI globals, object-field offsets, constants and ABI-related operands remain applicable.
+- The native dialog, Script caller, player frame/body/hit functions and standalone HUD frame moved. The candidate records their explicit old/new mappings in `src/game_build.h`; its exact EXE/engine pair selects the appropriate mapping. Existing prefix and ownership checks remain active.
+- Original 1.1.1.9 binaries were unavailable. Export/disassembly comparisons use archived evidence recorded against that verified build; this establishes the inspected boundaries, not full binary identity.
+
+Static evidence: `evidence/compat-1.1.1.13/engine-audit/README.md`, `engine-audit.json`, `music-disassembly.txt`, `path-resolver-disassembly.txt`, and `exe-audit/REPORT.md`, `semantic-compare.json` plus the captured disassembly and reproducible audit scripts.
+
+### Automated build
+
+The complete `build.ps1` run passed. `evidence/compat-1.1.1.13/build.log` records successful WAV/FLAC/MP3 conversion and damaged-input rejection, exactly-once forwarding, cache/scheduler behavior, game-pair selection and mixed/unknown-pair rejection, hotkeys, voice pause, music controls, native XWMA preparation, display behavior, compact-player ownership/input/layout, and source-folder discovery/rescanning. The popup/private-continuation and standalone HUD tests execute for both supported game profiles. The resulting DLL hash is listed above.
+
+### Initial live checkpoint
+
+The isolated Radio launch selected the WRSR 1.1.1.13 profile and reached bootstrap status zero with thirteen hooks and zero hook failures. This established startup before the initial gameplay and shutdown acceptance below.
+
+### Initial isolated gameplay acceptance and normal shutdown
+
+The user explicitly confirmed that custom music sounds and plays correctly, player dragging works, all player buttons work, and the keyboard shortcuts work. On-screen checks exercised Next, Previous, Restart, Pause/Resume and navigation while paused, with live source-title updates including a Russian filename. Audible acceptance is based on the user's confirmation, separately from the observed controls and runtime evidence.
+
+The first isolated session, game PID `12196`, exited normally with code `0x0` at **20:19:13.854 America/Chicago on November 11, 2026**, after **6m51.095s**. The report records bootstrap status zero, thirteen Radio hooks and zero hook failures. The final runtime log contains no `[ERROR]` entries. Retained evidence is `evidence/compat-1.1.1.13/smoke-isolated/runtime-final.log`, `report-final.json` and `trace-final.tsv`.
+
+The personal INI remained byte-for-byte unchanged at SHA-256 `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`; installation records are under `evidence/compat-1.1.1.13/install-20261111-201124/`. The original RML configuration was restored byte-for-byte after isolated testing, while the candidate Radio DLL remained installed. Errors from other installed mods remain outside this Radio acceptance. The retained 1.1.1.9 profile passed automated checks but was not rerun live during this update.
+
+### Relaunch with the original plugin selections
+
+The original RML selections scheduled fourteen plugins. Radio 1.0.1 again activated with thirteen hooks and zero hook failures; one custom track loaded and reached playback at the main menu. Other installed plugins still failed initialization or hook checks, so RML reported `DEGRADED` with bootstrap status `0x400`. That aggregate status does not describe a Radio hook failure.
+
+Game PID `51584` exited normally with code `0x0` at **20:20:32.691 America/Chicago on November 11, 2026**, after **32.239s**. Both game and RML were closed afterward. This second session is a startup/main-menu playback and shutdown check, not another full republic gameplay test or a new audible XWMA/FLAC acceptance result.
+
+The final installation audit confirms the candidate DLL remains `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`, the personal INI retains `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`, and the original RML configuration is restored byte-for-byte at SHA-256 `74f3b9120c4c8f0105df5cf2ae9f810a88959aaf1a290bb2107ea4e7c3503a8b`. Evidence is `evidence/compat-1.1.1.13/smoke-normal/runtime-final.log`, `report-final.json`, `trace-final.tsv` and `final-install-audit.json` in the compatibility evidence root. No release upload or publication is established by these local checks.

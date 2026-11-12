@@ -6,7 +6,9 @@
 
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
-Red Wolf Radio **1.0.0** supports Workers & Resources 1.1.1.9 and Republic Mod Loader 1.0.1 on Windows x64. Compatibility with other game or loader builds is not assumed because the plugin verifies the executable, engine, and RML runtime binaries before installing its hooks.
+Red Wolf Radio **1.0.1** supports verified compatibility profiles for Workers & Resources **1.1.1.13** and **1.1.1.9**, with Republic Mod Loader **1.0.1** on Windows x64. The full build, automated suites and initial in-game acceptance on 1.1.1.13 pass.
+
+The plugin checks the exact executable/engine pair and RML runtime before installing hooks. Each supported game build has its own player-window, Script-dialog and optional HUD addresses; unverified builds still decline to activate. Startup diagnostics identify the selected game profile and report the actual SHA-256 hashes. See [1.0.1 release notes](release-notes-1.0.1.md).
 
 Version 1.0 adds external XWMA playback and a compact live music player with icon controls. [Русская инструкция](README.ru.md).
 

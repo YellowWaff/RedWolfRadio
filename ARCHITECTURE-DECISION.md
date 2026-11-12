@@ -166,3 +166,22 @@ Automated and live acceptance results for this build are recorded separately in 
 ### Smaller icon player — October 13, 2026
 
 `1.0.0-player2` changes presentation within the existing owned-window renderer. The frame is 360x128 UI units with a 26-unit title bar, two filename lines and four 44x28 control targets. Transport symbols are drawn with the verified solid-panel primitives, avoiding new texture files, font-glyph assumptions or native hooks. The title bar shows localized action names on hover. Existing command queue, input ownership, native window lifetime and playback behavior are retained. Layout acceptance is separate from the earlier text-button player's successful tests.
+
+## Explicit game-build profiles — November 11, 2026
+
+WRSR 1.1.1.13 changes both protected binaries and moves several EXE functions. The `1.0.1` candidate selects an immutable `GameBuild` from `src/game_build.h` only when both the executable and engine SHA-256 match one verified pair. The original 1.1.1.9 pair remains supported; mixing either build's EXE with the other's engine is rejected. The separate exact RML 1.0.1 runtime check is retained. Neither a version string nor an approximate signature admits an unknown binary.
+
+| Boundary | 1.1.1.9 RVA | 1.1.1.13 RVA |
+|---|---|---|
+| Native dialog | `0x6ee2a0` | `0x6ee440` |
+| Script ShowText return | `0x5a0454` | `0x5a03e4` |
+| Native player frame | `0x6f0070` | `0x6f0210` |
+| Native type-1 body | `0x7f2660` | `0x7f2800` |
+| Native hit test | `0x6ef830` | `0x6ef9d0` |
+| Standalone HUD frame | `0x2f0f10` | `0x2f0e90` |
+
+The Script call prefix also belongs to the selected profile: `e8 4c de 14 00` at old RVA `0x5a044f`, or `e8 5c e0 14 00` at new RVA `0x5a03df`. Each relative call resolves to its profile's native dialog. Exact entry-prefix checks, hook-ownership checks and the prepublished private continuations remain in place.
+
+Static inspection compared all 2,218 named engine exports with the archived 1.1.1.9 report and found no name, ordinal or RVA changes. Current disassembly confirms the existing path resolver, loading flag, source voice and voice-control slots. EXE comparison covered 7,464 archived/current instructions across nine UI-related ranges; relevant global addresses and object-field displacements remain applicable. Branch/call relocation and one expected switch-table relocation are accounted for. This is bounded static evidence, not a claim that the complete old/new binaries are identical. Original 1.1.1.9 binaries were unavailable; the comparison uses the previously captured disassembly/export evidence.
+
+Initialization now logs the actual EXE, engine and RML runtime hashes, distinguishes an unverified game/engine pair from a runtime mismatch, and identifies the selected profile. Full build and automated tests passed, including both profiles' popup/private continuations and standalone HUD fallback. Initial isolated 1.1.1.13 startup reports thirteen hooks with no failures; user-confirmed custom music, player/shortcut acceptance and normal shutdown are recorded separately in `VALIDATION.md`. The candidate remains unpublished. Audit details are retained in `evidence/compat-1.1.1.13/engine-audit/README.md` and `exe-audit/REPORT.md`.

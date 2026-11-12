@@ -234,7 +234,10 @@ int main() {
     require(counts[Playing].load() == beforeCount + 40000, "concurrent poll counts exact");
     char escaped[100]; escapePath("a\tb\n\\c", escaped, sizeof(escaped));
     require(strcmp(escaped, "a\\x09b\\x0a\\x5cc") == 0, "TSV paths escaped");
-    require(checkModule(GetModuleHandleW(nullptr), kExeHash) == false, "wrong module hash rejected");
+    char ownHash[65]{};
+    require(readModuleHash(GetModuleHandleW(nullptr), ownHash) &&
+        !rwr::findVerifiedGameBuild(ownHash, gameBuild->engineHash), "wrong module hash rejected");
+    require(!readModuleHash(nullptr, ownHash) && ownHash[0] == 0, "missing module has no stale hash");
     manager.catalog.clear();
     for (const char* id : {"external:a.wav", "external:b.wav", "external:c.wav"}) {
         Track track; track.id = id; track.nativePlayable = true;

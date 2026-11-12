@@ -1,6 +1,6 @@
 Red Wolf Radio adds your own music to Workers & Resources: Soviet Republic through Republic Mod Loader.
 
-Version 1.0.0 requires Republic Mod Loader 1.0.1 and supports the verified Workers & Resources 1.1.1.9 binaries on Windows x64. Launch the game through RML. Enable only one copy of Red Wolf Radio.
+Version 1.0.1 requires Republic Mod Loader 1.0.1 and supports the verified Workers & Resources 1.1.1.13 and 1.1.1.9 binaries on Windows x64. Launch the game through RML. Enable only one copy of Red Wolf Radio.
 
 Play WAV, MP3, FLAC and RIFF XWMA/WMAudio2 from your Windows Music folder or a folder you choose. Folders are scanned on every launch, with optional plugin-local Music. Copy XWMA music from other Workshop items into your music folder to use it here. No tracks or filenames are hardcoded, and album art is ignored.
 

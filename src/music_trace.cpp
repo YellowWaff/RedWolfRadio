@@ -28,9 +28,10 @@
 #include "native_song_popup.h"
 #include "native_player_ui.h"
 #include "default_ini.h"
+#include "game_build.h"
 
 namespace {
-constexpr char kVersion[] = "1.0.0";
+constexpr char kVersion[] = "1.0.1";
 constexpr size_t kNoHistory = static_cast<size_t>(-1);
 constexpr size_t kHistoryLimit = 64;
 constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;
@@ -125,9 +126,10 @@ constexpr char kSilenceCacheFolder[] = "cache\\v1";
 constexpr char kSilenceTrackFile[] = "red_wolf_radio_silent.wav";
 constexpr uint32_t kSilenceSeconds = 1;
 constexpr int64_t kCatalogRecoveryMilliseconds = 6000;
-constexpr char kExeHash[] = "296644a9f207d609031fc2ae73fed2dcb34619a1d55a35d1c7b51965ce6841b8";
-constexpr char kEngineHash[] = "65fcb6845c3cb7c25a22121f25904a855ea88657e31a3b50a15adac26e231516";
 constexpr char kRuntimeHash[] = "761ca3aee81c77034059258310e5eb4e3df14f94d21d030a96b9665879fd19d0";
+// No callback is installed until Init selects an exact verified pair. The first
+// profile also provides the historical baseline for isolated forwarding tests.
+const rwr::GameBuild* gameBuild = &rwr::kVerifiedGameBuilds[0];
 const TsmHost* host = nullptr;
 HMODULE selfModule;
 ManagerState manager;
@@ -1624,11 +1626,8 @@ void notifyTrackStartedLocked(ULONGLONG now) {
 using NativeDialogFn = void* (*)(void*, int, void*, int, int, int, int, const wchar_t*, void*);
 std::atomic<NativeDialogFn> previousNativeDialog{nullptr};
 std::atomic<bool> nativePlayerReady{false};
-constexpr size_t kNativeDialogRva = 0x6ee2a0;
-constexpr size_t kScriptDialogReturnRva = 0x5a0454;
 constexpr unsigned char kNativeDialogPrefix[14] = {
     0x48,0x8b,0xc4,0x44,0x89,0x48,0x20,0x89,0x50,0x10,0x48,0x89,0x48,0x08};
-constexpr unsigned char kScriptDialogCall[5] = {0xe8,0x4c,0xde,0x14,0x00};
 
 void currentNativePlayerSnapshot(rwr::NativePlayerSnapshot& result) {
     result = {};
@@ -1666,7 +1665,7 @@ void* dispatchNativeSongDialog(const void* caller, void* game, int arg2, void* a
     if (!continuation) return nullptr;
     // Exact caller + tuple avoid examining text in other native dialog variants.
     const bool ownCall = host && host->exeModule && host->readablePtr && game &&
-        caller == reinterpret_cast<unsigned char*>(host->exeModule) + kScriptDialogReturnRva &&
+        caller == reinterpret_cast<unsigned char*>(host->exeModule) + gameBuild->scriptDialogReturnRva &&
         arg2 == 1 && !arg3 && arg4 == 4 && arg5 == 0 && dialogType == 1 && titleId == 0x983e && !arg9;
     if (ownCall && text && host->readablePtr(text, sizeof(rwr::kSongPopupMarker)) &&
         !memcmp(text, rwr::kSongPopupMarker, sizeof(rwr::kSongPopupMarker))) {
@@ -1694,15 +1693,15 @@ __attribute__((noinline)) void* onNativeSongDialog(void* game, int arg2, void* a
 
 bool installNativeSongPopup() {
     if (!manager.config.nativeSongPopup || !host || !host->exeModule || !host->readablePtr ||
-        !host->installInlineHook || host->exeSize < kNativeDialogRva + sizeof(kNativeDialogPrefix)) return false;
+        !host->installInlineHook || host->exeSize < gameBuild->nativeDialogRva + sizeof(kNativeDialogPrefix)) return false;
     auto* base = reinterpret_cast<unsigned char*>(host->exeModule);
-    auto* target = base + kNativeDialogRva;
-    auto* call = base + kScriptDialogReturnRva - sizeof(kScriptDialogCall);
+    auto* target = base + gameBuild->nativeDialogRva;
+    auto* call = base + gameBuild->scriptDialogReturnRva - sizeof(gameBuild->scriptDialogCall);
     // Refuse unknown ownership/changed code before a host hook request, which can abort launch.
     if (!host->readablePtr(target, sizeof(kNativeDialogPrefix)) ||
         memcmp(target, kNativeDialogPrefix, sizeof(kNativeDialogPrefix)) ||
-        !host->readablePtr(call, sizeof(kScriptDialogCall)) ||
-        memcmp(call, kScriptDialogCall, sizeof(kScriptDialogCall))) return false;
+        !host->readablePtr(call, sizeof(gameBuild->scriptDialogCall)) ||
+        memcmp(call, gameBuild->scriptDialogCall, sizeof(gameBuild->scriptDialogCall))) return false;
     // RML leaves the game thread running while installing hooks. Publish a
     // complete private continuation before the host can expose this detour.
     // All four stolen instructions are relocation-free. FF25 preserves RAX.
@@ -1736,9 +1735,6 @@ using NativePlayerHitFn = bool (*)(void*, void*);
 std::atomic<NativePlayerFrameFn> previousNativePlayerFrame{nullptr};
 std::atomic<NativePlayerBodyFn> previousNativePlayerBody{nullptr};
 std::atomic<NativePlayerHitFn> previousNativePlayerHit{nullptr};
-constexpr size_t kNativePlayerFrameRva = 0x6f0070;
-constexpr size_t kNativePlayerBodyRva = 0x7f2660;
-constexpr size_t kNativePlayerHitRva = 0x6ef830;
 constexpr unsigned char kNativePlayerFramePrefix[] = {
     0x48,0x8b,0xc4,0x55,0x53,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0x28,0xfb,0xff,0xff};
 constexpr unsigned char kNativePlayerBodyPrefix[] = {
@@ -1809,20 +1805,20 @@ template<class Fn, size_t N> bool installNativePlayerHook(size_t rva,
 }
 bool installNativePlayer() {
     if (!manager.config.nativeSongPopup || !host || !host->installInlineHook ||
-        !nativePlayerPrefixMatches(kNativeDialogRva, kNativeDialogPrefix) ||
-        !nativePlayerPrefixMatches(kScriptDialogReturnRva - sizeof(kScriptDialogCall), kScriptDialogCall) ||
-        !nativePlayerPrefixMatches(kNativePlayerFrameRva, kNativePlayerFramePrefix) ||
-        !nativePlayerPrefixMatches(kNativePlayerBodyRva, kNativePlayerBodyPrefix) ||
-        !nativePlayerPrefixMatches(kNativePlayerHitRva, kNativePlayerHitPrefix) ||
+        !nativePlayerPrefixMatches(gameBuild->nativeDialogRva, kNativeDialogPrefix) ||
+        !nativePlayerPrefixMatches(gameBuild->scriptDialogReturnRva - sizeof(gameBuild->scriptDialogCall), gameBuild->scriptDialogCall) ||
+        !nativePlayerPrefixMatches(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix) ||
+        !nativePlayerPrefixMatches(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix) ||
+        !nativePlayerPrefixMatches(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix) ||
         !rwr::initializeNativePlayerUi(host, currentNativePlayerSnapshot, rwr::queueUiMusicAction)) return false;
     // Prepublish every forwarding path before the first hook request. A partially
     // installed set only forwards foreign windows; creation/ownership is last.
-    if (!prepareNativePlayerContinuation(kNativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) ||
-        !prepareNativePlayerContinuation(kNativePlayerBodyRva, kNativePlayerBodyPrefix, previousNativePlayerBody) ||
-        !prepareNativePlayerContinuation(kNativePlayerHitRva, kNativePlayerHitPrefix, previousNativePlayerHit)) return false;
-    if (!installNativePlayerHook(kNativePlayerFrameRva, kNativePlayerFramePrefix, onNativePlayerFrame, "Red Wolf Radio native player frame") ||
-        !installNativePlayerHook(kNativePlayerBodyRva, kNativePlayerBodyPrefix, onNativePlayerBody, "Red Wolf Radio native player body") ||
-        !installNativePlayerHook(kNativePlayerHitRva, kNativePlayerHitPrefix, onNativePlayerHit, "Red Wolf Radio native player hit region")) return false;
+    if (!prepareNativePlayerContinuation(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) ||
+        !prepareNativePlayerContinuation(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix, previousNativePlayerBody) ||
+        !prepareNativePlayerContinuation(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix, previousNativePlayerHit)) return false;
+    if (!installNativePlayerHook(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix, onNativePlayerFrame, "Red Wolf Radio native player frame") ||
+        !installNativePlayerHook(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix, onNativePlayerBody, "Red Wolf Radio native player body") ||
+        !installNativePlayerHook(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix, onNativePlayerHit, "Red Wolf Radio native player hit region")) return false;
     nativePlayerReady.store(true, std::memory_order_release);
     if (!installNativeSongPopup()) { nativePlayerReady.store(false, std::memory_order_release); return false; }
     if (host->log) host->log("[RedWolfRadio] Live compact native player installed; automatic refresh and four playback controls.");
@@ -1909,7 +1905,7 @@ bool installNotificationRenderer() {
         }
     }
     constexpr unsigned char prefix[14] = {0x48,0x8b,0xc4,0x48,0x89,0x58,0x20,0x55,0x56,0x57,0x41,0x55,0x41,0x56};
-    auto* target = reinterpret_cast<unsigned char*>(host->exeModule) + 0x2f0f10;
+    auto* target = reinterpret_cast<unsigned char*>(host->exeModule) + gameBuild->hudFrameRva;
     // Leave an unknown owner alone. Refusing before the host hook request also
     // avoids turning an optional display conflict into an RML launch failure.
     if (!host->readablePtr(target, sizeof(prefix)) || memcmp(target, prefix, sizeof(prefix))) return false;
@@ -2082,8 +2078,9 @@ DWORD WINAPI writerMain(void*) {
     drain(); summary(); return 0;
 }
 
-bool checkOpenFileHash(HANDLE file, const char* expected) {
-    if (file == INVALID_HANDLE_VALUE || !expected) return false;
+bool readOpenFileHash(HANDLE file, char (&actual)[65]) {
+    actual[0] = 0;
+    if (file == INVALID_HANDLE_VALUE) return false;
     BCRYPT_ALG_HANDLE alg = nullptr; BCRYPT_HASH_HANDLE hash = nullptr;
     bool ok = BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, nullptr, 0) >= 0;
     if (ok) ok = BCryptCreateHash(alg, &hash, nullptr, 0, nullptr, 0, 0) >= 0;
@@ -2094,19 +2091,19 @@ bool checkOpenFileHash(HANDLE file, const char* expected) {
         ok = BCryptHashData(hash, buffer, read, 0) >= 0;
     }
     if (ok) ok = BCryptFinishHash(hash, digest, sizeof(digest), 0) >= 0;
-    char actual[65]{};
     if (ok) for (unsigned i = 0; i < 32; ++i) snprintf(actual + i * 2, 3, "%02x", digest[i]);
     if (hash) BCryptDestroyHash(hash);
     if (alg) BCryptCloseAlgorithmProvider(alg, 0);
-    return ok && strcmp(actual, expected) == 0;
+    return ok;
 }
-bool checkModule(HMODULE module, const char* expected) {
+bool readModuleHash(HMODULE module, char (&actual)[65]) {
+    actual[0] = 0;
     wchar_t path[32768];
     DWORD n = module ? GetModuleFileNameW(module, path, 32768) : 0;
     if (!n || n >= 32768) return false;
     HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
         nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    const bool ok = checkOpenFileHash(file, expected);
+    const bool ok = readOpenFileHash(file, actual);
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
     return ok;
 }
@@ -2127,7 +2124,7 @@ bool startLog() {
     char header[1000];
     snprintf(header, sizeof(header), "# Red Wolf Radio %s; UTC=%04u-%02u-%02uT%02u:%02u:%02uZ; exeBase=0x%llx; engineBase=0x%llx\n# Runtime music routing log; Stop/T=failed-load timeout. H=music command (arg0 Next=1 Previous=2 PlayPause=3 Restart=4 PreviousTrack=5; arg1 applied=1 pending=2 ignored=0 failed=-1). Play/D=deferred while user-paused.\n# Volume/status repeats counted, only changes logged; 10-second counts; 32MiB cap; process-exit tail may be lost.\n# exeSHA256=%s\n# engineSHA256=%s\ncall\tms\tthread\tfunction\tphase\tcaller\targ0\targ1\tbits_or_path_flags\tvolume\tpath_bytes\n",
         kVersion, utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond,
-        reinterpret_cast<unsigned long long>(host->exeModule), reinterpret_cast<unsigned long long>(host->engineModule), kExeHash, kEngineHash);
+        reinterpret_cast<unsigned long long>(host->exeModule), reinterpret_cast<unsigned long long>(host->engineModule), gameBuild->exeHash, gameBuild->engineHash);
     if (!writeLine(header)) return false;
     stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!stopEvent) return false;
@@ -2147,12 +2144,24 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* api, TsmPlugin
     if (!api || !info || api->apiVersion != 4 || api->structSize < sizeof(TsmHost) ||
         !api->log || !api->findIatSlot || !api->patchIat || !api->installInlineHook || !api->allocNear) return 1;
     host = api; info->name = "Red Wolf Radio"; info->version = kVersion;
-    if (!checkModule(static_cast<HMODULE>(api->exeModule), kExeHash) ||
-        !checkModule(static_cast<HMODULE>(api->engineModule), kEngineHash) ||
-        !checkModule(GetModuleHandleW(L"rml_runtime.dll"), kRuntimeHash)) {
-        api->log("[RedWolfRadio] Declined: game, engine, or Republic runtime differs from verified build. No hooks installed.");
+    char exeHash[65]{}, engineHash[65]{}, runtimeHash[65]{};
+    const bool exeOk = readModuleHash(static_cast<HMODULE>(api->exeModule), exeHash);
+    const bool engineOk = readModuleHash(static_cast<HMODULE>(api->engineModule), engineHash);
+    const bool runtimeOk = readModuleHash(GetModuleHandleW(L"rml_runtime.dll"), runtimeHash);
+    const auto* verified = rwr::findVerifiedGameBuild(exeHash, engineHash);
+    api->log("[RedWolfRadio] EXE SHA-256: %s", exeOk ? exeHash : "unreadable");
+    api->log("[RedWolfRadio] Engine SHA-256: %s", engineOk ? engineHash : "unreadable");
+    api->log("[RedWolfRadio] Republic runtime SHA-256: %s", runtimeOk ? runtimeHash : "unreadable");
+    if (!exeOk || !engineOk || !verified) {
+        api->log("[RedWolfRadio] Declined: unverified game/engine pair. Supported builds: 1.1.1.9 and 1.1.1.13. No hooks installed.");
         return 1;
     }
+    if (!runtimeOk || strcmp(runtimeHash, kRuntimeHash)) {
+        api->log("[RedWolfRadio] Declined: Republic runtime differs from verified RML 1.0.1; expected SHA-256 %s. No hooks installed.", kRuntimeHash);
+        return 1;
+    }
+    gameBuild = verified;
+    api->log("[RedWolfRadio] Selected verified WRSR %s compatibility profile.", gameBuild->version);
     engineLoadingFlag = reinterpret_cast<volatile char*>(
         reinterpret_cast<unsigned char*>(api->engineModule) + 0x1dc6e1);
     // Never bypass an existing import owner.

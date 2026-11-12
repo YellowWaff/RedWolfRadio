@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 - 2026-11-11
+
+- Add an exact executable/engine compatibility profile for WRSR 1.1.1.13 while retaining the verified 1.1.1.9 profile and RML 1.0.1 requirement.
+- Select the relocated Script-dialog, native player and optional HUD function addresses for the matched game build. Static inspection confirms the shared engine music API, UI globals and object layouts remain applicable.
+- Report the actual executable, engine and Republic runtime SHA-256 hashes at startup, with separate diagnostics for an unsupported game/engine pair and an unverified RML runtime.
+- Keep binary checks, original-file preservation, music formats, cache settings, shortcuts and player behavior unchanged. Unknown builds still decline to activate.
+- Pass the full build and automated suites, including both profiles' popup/private continuations and HUD fallback, exact Script call destinations, and rejection of mixed or unknown game/engine pairs.
+- Pass initial isolated gameplay acceptance on WRSR 1.1.1.13: user-confirmed custom music, dragging, player buttons and shortcuts, with observed live title/control updates and normal shutdown. Relaunch with the usual plugin selections also activated Radio and exited normally; unrelated plugin errors remain. The older 1.1.1.9 profile was not rerun live.
+
 ## 1.0.0 - 2026-10-13
 
 - Play supported external RIFF XWMA/WMAudio2 through the game's native loader without WAV conversion; preserve source files and use compressed copies only for Unicode/long paths.

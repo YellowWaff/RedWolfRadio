@@ -42,7 +42,7 @@ static void* fakeDialog(void* game, int a2, void* a3, int a4, int a5, int type, 
 static int install(void* target, void* detour, void** continuation,
     const unsigned char* prefix, size_t stolen, const char*) {
     ++hookRequests;
-    require(target == static_cast<unsigned char*>(host->exeModule) + kNativeDialogRva &&
+    require(target == static_cast<unsigned char*>(host->exeModule) + gameBuild->nativeDialogRva &&
         detour == reinterpret_cast<void*>(onNativeSongDialog), "hook target and adapter");
     require(stolen == 14 && !memcmp(prefix, kNativeDialogPrefix, 14), "exact whole-instruction prologue");
     // RML can expose the detour while its installation call is still running.
@@ -94,30 +94,30 @@ static void testPrivateUiContinuations(TsmHost& api) {
     constexpr size_t bytes = 0x800000;
     auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     require(memory != nullptr, "UI stand-in module"); api.exeModule = memory; api.exeSize = bytes;
-    require(!nativePlayerPrefixMatches(kNativePlayerFrameRva, kNativePlayerFramePrefix), "changed frame refused");
-    require(!nativePlayerPrefixMatches(kNativePlayerBodyRva, kNativePlayerBodyPrefix), "changed body refused");
-    require(!nativePlayerPrefixMatches(kNativePlayerHitRva, kNativePlayerHitPrefix), "changed hit refused");
-    memcpy(memory + kNativePlayerFrameRva, kNativePlayerFramePrefix, sizeof(kNativePlayerFramePrefix));
-    memcpy(memory + kNativePlayerBodyRva, kNativePlayerBodyPrefix, sizeof(kNativePlayerBodyPrefix));
-    memcpy(memory + kNativePlayerHitRva, kNativePlayerHitPrefix, sizeof(kNativePlayerHitPrefix));
+    require(!nativePlayerPrefixMatches(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix), "changed frame refused");
+    require(!nativePlayerPrefixMatches(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix), "changed body refused");
+    require(!nativePlayerPrefixMatches(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix), "changed hit refused");
+    memcpy(memory + gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix, sizeof(kNativePlayerFramePrefix));
+    memcpy(memory + gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix, sizeof(kNativePlayerBodyPrefix));
+    memcpy(memory + gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix, sizeof(kNativePlayerHitPrefix));
     const unsigned char frameUnwind[] = {0x41,0x5f,0x41,0x5e,0x41,0x5d,0x5b,0x5d};
     const unsigned char hitUnwind[] = {0x48,0x81,0xc4,0xd0,0,0,0,0x5e,0x5b,0x5d};
-    auto* frameBody = memory + kNativePlayerFrameRva + sizeof(kNativePlayerFramePrefix);
+    auto* frameBody = memory + gameBuild->nativePlayerFrameRva + sizeof(kNativePlayerFramePrefix);
     memcpy(frameBody, frameUnwind, sizeof(frameUnwind));
     writeJump(frameBody + sizeof(frameUnwind), reinterpret_cast<void*>(fakeFrame));
-    writeJump(memory + kNativePlayerBodyRva + sizeof(kNativePlayerBodyPrefix), reinterpret_cast<void*>(fakeBody));
-    auto* hitBody = memory + kNativePlayerHitRva + sizeof(kNativePlayerHitPrefix);
+    writeJump(memory + gameBuild->nativePlayerBodyRva + sizeof(kNativePlayerBodyPrefix), reinterpret_cast<void*>(fakeBody));
+    auto* hitBody = memory + gameBuild->nativePlayerHitRva + sizeof(kNativePlayerHitPrefix);
     memcpy(hitBody, hitUnwind, sizeof(hitUnwind));
     writeJump(hitBody + sizeof(hitUnwind), reinterpret_cast<void*>(fakeHit));
     DWORD old = 0;
     require(VirtualProtect(memory, bytes, PAGE_EXECUTE_READ, &old) &&
         FlushInstructionCache(GetCurrentProcess(), memory, bytes), "UI stand-in executable");
-    require(nativePlayerPrefixMatches(kNativePlayerFrameRva, kNativePlayerFramePrefix) &&
-        nativePlayerPrefixMatches(kNativePlayerBodyRva, kNativePlayerBodyPrefix) &&
-        nativePlayerPrefixMatches(kNativePlayerHitRva, kNativePlayerHitPrefix), "all verified UI prefixes");
-    require(prepareNativePlayerContinuation(kNativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) &&
-        prepareNativePlayerContinuation(kNativePlayerBodyRva, kNativePlayerBodyPrefix, previousNativePlayerBody) &&
-        prepareNativePlayerContinuation(kNativePlayerHitRva, kNativePlayerHitPrefix, previousNativePlayerHit),
+    require(nativePlayerPrefixMatches(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix) &&
+        nativePlayerPrefixMatches(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix) &&
+        nativePlayerPrefixMatches(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix), "all verified UI prefixes");
+    require(prepareNativePlayerContinuation(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) &&
+        prepareNativePlayerContinuation(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix, previousNativePlayerBody) &&
+        prepareNativePlayerContinuation(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix, previousNativePlayerHit),
         "all private continuations published before hook installation");
     nativePlayerReady = false;
     SetLastError(1234); onNativePlayerFrame(reinterpret_cast<void*>(0x456), reinterpret_cast<void*>(0x789), 12);
@@ -141,7 +141,9 @@ static void checkText(const rwr::SongPopupText& text) {
         } else require(c < 0xdc00 || c > 0xdfff, "no orphan low surrogate");
     }
 }
-int main() {
+static void testBuild() {
+    popupSetting = nullptr; capture = false;
+    calls = hookRequests = frameCalls = bodyCalls = hitCalls = 0;
     auto text = rwr::songPopupText(L"Проверка музыки 100% %s %n %.*s %1$ %%\tend\r\n",
         rwr::SongPopupState::Playing, true);
     checkText(text);
@@ -186,12 +188,12 @@ int main() {
     auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, 0x700000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     require(memory != nullptr, "test module allocation"); api.exeModule = memory; api.exeSize = 0x700000;
     require(!installNativeSongPopup() && hookRequests == 0, "unknown owner refused before host hook request");
-    memcpy(memory + kNativeDialogRva, kNativeDialogPrefix, 14);
+    memcpy(memory + gameBuild->nativeDialogRva, kNativeDialogPrefix, 14);
     require(!installNativeSongPopup() && hookRequests == 0, "changed script caller refused before hook request");
-    memcpy(memory + kScriptDialogReturnRva - 5, kScriptDialogCall, 5);
+    memcpy(memory + gameBuild->scriptDialogReturnRva - 5, gameBuild->scriptDialogCall, 5);
     // Fake native body jumps to the stand-in after executing the actual stolen
     // prologue. The real private trampoline is executed by the publication test.
-    auto* nativeBody = memory + kNativeDialogRva + sizeof(kNativeDialogPrefix);
+    auto* nativeBody = memory + gameBuild->nativeDialogRva + sizeof(kNativeDialogPrefix);
     nativeBody[0] = 0xff; nativeBody[1] = 0x25;
     const auto fakeAddress = reinterpret_cast<uintptr_t>(fakeDialog);
     memcpy(nativeBody + 6, &fakeAddress, sizeof(fakeAddress));
@@ -204,13 +206,13 @@ int main() {
     require(installNativeSongPopup() && hookRequests == 1 && previousNativeDialog.load() != nullptr,
         "verified optional hook installed with private continuation");
 
-    const void* caller = memory + kScriptDialogReturnRva;
+    const void* caller = memory + gameBuild->scriptDialogReturnRva;
     Arguments own{reinterpret_cast<void*>(0x111), 1, nullptr, 4, 0, 1, 0x983e, rwr::kSongPopupMarker, nullptr};
     capture = true; call(caller, own);
     require(copied.find(L"Проверка музыки 100[percent]") != std::wstring::npos, "exact marker substituted");
     manager.catalog[0].displayName = L"Second song"; call(caller, own);
     require(copied.find(L"Second song") != std::wstring::npos, "each opening takes a fresh snapshot");
-    capture = false; call(memory + kScriptDialogReturnRva + 1, own);
+    capture = false; call(memory + gameBuild->scriptDialogReturnRva + 1, own);
     for (unsigned variation = 0; variation < 10; ++variation) {
         auto other = own;
         switch (variation) {
@@ -242,4 +244,11 @@ int main() {
     testPrivateUiContinuations(api);
     host = nullptr;
     puts("PASS: popup bounded Unicode/percent text, state snapshots, opt-in config, ownership guards, exact marker and nine-argument forwarding.");
+}
+
+int main() {
+    for (const auto& build : rwr::kVerifiedGameBuilds) {
+        gameBuild = &build;
+        testBuild();
+    }
 }

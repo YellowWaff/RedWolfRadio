@@ -53,48 +53,56 @@ static const FrameServicePrefix service{sizeof(FrameServicePrefix), 1, fakeRegis
 static const void* fakeConsume(const char* name, unsigned version) { return !strcmp(name, "ForceNodes") && version == 1 ? &service : nullptr; }
 static void* drawSlot = reinterpret_cast<void*>(fakeDraw);
 static void** fakeFind(void*, const char*, const char*) { return &drawSlot; }
-static int fakeInstall(void*, void*, void** continuation, const unsigned char*, size_t stolen, const char*) {
+static int fakeInstall(void* target, void*, void** continuation, const unsigned char*, size_t stolen, const char*) {
+    require(target == static_cast<unsigned char*>(host->exeModule) + gameBuild->hudFrameRva,
+        "HUD fallback hooks the selected build's frame");
     require(stolen == 14, "HUD stolen instructions end exactly at verified boundary");
     ++hookRequests; *continuation = reinterpret_cast<void*>(fakeFrame); return 1;
 }
 static void displayAcceptance() {
-    TsmHost api{}; api.configString = fakeConfig; api.log = fakeLog; host = &api;
-    Config config;
-    parseDisplayConfig(config); require(!config.showTrackName && config.nativeSongPopup && !config.displayRussian,
-        "old INI receives native player without enabling transient HUD");
-    displayValuePresent = true; parseDisplayConfig(config);
-    require(!config.showTrackName && !config.nativeSongPopup && config.displayRussian, "explicit display opt-outs and Russian label selection");
-    displayValue = "true"; parseDisplayConfig(config);
-    require(config.showTrackName && config.nativeSongPopup, "explicit HUD opt-in is preserved alongside player");
-    displayValue = "broken"; parseDisplayConfig(config); require(!config.showTrackName, "bad display toggle disables only display");
-    auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, 0xa00000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-    require(memory != nullptr, "fake render memory");
-    uint64_t font = 0; void* fontPointer = &font;
-    memcpy(memory + 0x994200, &fontPointer, sizeof(fontPointer));
-    *reinterpret_cast<int*>(memory + 0x99528c) = 1280;
-    *reinterpret_cast<int*>(memory + 0x995274) = 720;
-    *reinterpret_cast<float*>(memory + 0x992088) = 1.f;
-    api.exeModule = memory; api.readablePtr = fakeReadable; api.findIatSlot = fakeFind;
-    api.installInlineHook = fakeInstall; api.consume = fakeConsume;
-    manager.config.showTrackName = true; manager.config.displayRussian = true;
-    manager.activeTrackId = manager.catalog[0].id; notifyTrackStartedLocked(GetTickCount64());
-    require(installNotificationRenderer() && registeredClient && hookRequests == 0, "existing ForceNodes service avoids another frame hook");
-    FrameContextPrefix frame{sizeof(frame), 0}; registeredClient(&frame, nullptr);
-    require(drawCalls == 0, "before-frame callbacks cannot draw");
-    frame.phase = 1; SetLastError(522); registeredClient(&frame, nullptr);
-    require(drawCalls == 4 && drawnTitle == L"Original title" && GetLastError() == 522, "after-frame renders source title and preserves native error");
-    manager.notificationUntil = GetTickCount64(); registeredClient(&frame, nullptr);
-    require(drawCalls == 4, "expired notification draws nothing");
-    api.consume = nullptr;
-    require(!installNotificationRenderer() && hookRequests == 0, "unknown frame prefix refuses before host request");
-    const unsigned char prefix[14] = {0x48,0x8b,0xc4,0x48,0x89,0x58,0x20,0x55,0x56,0x57,0x41,0x55,0x41,0x56};
-    memcpy(memory + 0x2f0f10, prefix, 14);
-    require(installNotificationRenderer() && hookRequests == 1, "native frame fallback requests proven prefix");
-    onHudFrame(nullptr); require(frameCalls == 1 && GetLastError() == 317, "frame continuation executes once");
-    manager.config.showTrackName = false;
-    require(!installNotificationRenderer() && hookRequests == 1, "disabled HUD installs no hook");
-    VirtualFree(memory, 0, MEM_RELEASE); host = nullptr; hudPrint = nullptr; previousFrame = nullptr;
-    puts("PASS: existing INI display defaults, RU selection, optional renderer service/fallback, unknown-owner refusal, expiry, and exactly-once frame forwarding.");
+    for (const auto& build : rwr::kVerifiedGameBuilds) {
+        gameBuild = &build;
+        drawCalls = hookRequests = frameCalls = 0; registeredClient = nullptr;
+        displayValuePresent = false; displayValue = "false";
+        TsmHost api{}; api.configString = fakeConfig; api.log = fakeLog; host = &api;
+        Config config;
+        parseDisplayConfig(config); require(!config.showTrackName && config.nativeSongPopup && !config.displayRussian,
+            "old INI receives native player without enabling transient HUD");
+        displayValuePresent = true; parseDisplayConfig(config);
+        require(!config.showTrackName && !config.nativeSongPopup && config.displayRussian, "explicit display opt-outs and Russian label selection");
+        displayValue = "true"; parseDisplayConfig(config);
+        require(config.showTrackName && config.nativeSongPopup, "explicit HUD opt-in is preserved alongside player");
+        displayValue = "broken"; parseDisplayConfig(config); require(!config.showTrackName, "bad display toggle disables only display");
+        auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, 0xa00000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        require(memory != nullptr, "fake render memory");
+        uint64_t font = 0; void* fontPointer = &font;
+        memcpy(memory + 0x994200, &fontPointer, sizeof(fontPointer));
+        *reinterpret_cast<int*>(memory + 0x99528c) = 1280;
+        *reinterpret_cast<int*>(memory + 0x995274) = 720;
+        *reinterpret_cast<float*>(memory + 0x992088) = 1.f;
+        api.exeModule = memory; api.readablePtr = fakeReadable; api.findIatSlot = fakeFind;
+        api.installInlineHook = fakeInstall; api.consume = fakeConsume;
+        manager.config.showTrackName = true; manager.config.displayRussian = true;
+        manager.activeTrackId = manager.catalog[0].id; notifyTrackStartedLocked(GetTickCount64());
+        require(installNotificationRenderer() && registeredClient && hookRequests == 0, "existing ForceNodes service avoids another frame hook");
+        FrameContextPrefix frame{sizeof(frame), 0}; registeredClient(&frame, nullptr);
+        require(drawCalls == 0, "before-frame callbacks cannot draw");
+        frame.phase = 1; SetLastError(522); registeredClient(&frame, nullptr);
+        require(drawCalls == 4 && drawnTitle == L"Original title" && GetLastError() == 522, "after-frame renders source title and preserves native error");
+        manager.notificationUntil = GetTickCount64(); registeredClient(&frame, nullptr);
+        require(drawCalls == 4, "expired notification draws nothing");
+        api.consume = nullptr;
+        require(!installNotificationRenderer() && hookRequests == 0, "unknown frame prefix refuses before host request");
+        const unsigned char prefix[14] = {0x48,0x8b,0xc4,0x48,0x89,0x58,0x20,0x55,0x56,0x57,0x41,0x55,0x41,0x56};
+        memcpy(memory + gameBuild->hudFrameRva, prefix, 14);
+        require(installNotificationRenderer() && hookRequests == 1, "native frame fallback requests proven prefix");
+        onHudFrame(nullptr); require(frameCalls == 1 && GetLastError() == 317, "frame continuation executes once");
+        manager.config.showTrackName = false;
+        require(!installNotificationRenderer() && hookRequests == 1, "disabled HUD installs no hook");
+        VirtualFree(memory, 0, MEM_RELEASE); host = nullptr; hudPrint = nullptr; previousFrame = nullptr;
+        puts("PASS: existing INI display defaults, RU selection, optional renderer service/fallback, unknown-owner refusal, expiry, and exactly-once frame forwarding.");
+        }
+    gameBuild = &rwr::kVerifiedGameBuilds[0];
 }
 int main(int argc, char** argv) {
     wchar_t temp[32768]{}; require(GetTempPathW(32768, temp), "temp path");

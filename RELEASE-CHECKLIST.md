@@ -1,5 +1,20 @@
 # Public release checklist
 
+## 1.0.1 publication preparation — November 11, 2026
+
+The user authorized publication of the tested `1.0.1` update to the existing Steam Workshop item and GitHub release. The following checks distinguish the verified local build from the publication steps still to be completed.
+
+- [x] Verify the exact WRSR 1.1.1.13 executable/engine pair and relocated player, Script-dialog and optional HUD addresses; retain the 1.1.1.9 profile and strict RML 1.0.1 runtime check.
+- [x] Pass the full build and automated suites, including both profiles' continuations/HUD fallback and rejection of mixed or unknown game/engine pairs. Tested DLL SHA-256: `8ed39562a622d7676df434f48fd2674972662857d72bd47a26c1b88f0b8d2cc2`.
+- [x] Complete initial 1.1.1.13 gameplay acceptance: user-confirmed custom music, player dragging, all player buttons and keyboard shortcuts; observed source-title updates, paused navigation, normal shutdown and relaunch. Other plugins' compatibility errors remain separate.
+- [x] Prepare final English/Russian documentation and release notes with unchanged settings, backup guidance and the actual test limits. Do not advertise the character owner's name.
+- [ ] Regenerate and audit the final standalone and Workshop archives with these release documents and the tested DLL.
+- [ ] Publish the source commit and `v1.0.1` tag without including unrelated working-tree changes or private test evidence.
+- [ ] Publish the GitHub release and verify its downloadable asset hashes.
+- [ ] Stage the payload into registered Workshop item `3805202523`, preserving item identity, companion registration and artwork; back up the subscribed personal INI outside Steam/game folders.
+- [ ] Submit the Workshop update, verify upload success and the subscribed download, and confirm its DLL hash/version.
+- [ ] Restore the personal INI if Steam replaces it, then verify the final INI and RML selections.
+
 ## 1.0 publication status — October 13, 2026
 
 The final `1.0.0` source and release are published. GitHub serves the explicitly named `docs-r1` download revision, containing documentation corrections with the same DLL, runtime files and INI; the `v1.0.0` source tag is unchanged. Steam's uploads/downloads, the subscribed player's live controls and normal shutdown are verified. The corrected bilingual and dedicated Russian listing text, both gallery guides and bilingual 1.0 change notes are public and checked. The final documentation-only Workshop refresh also completed successfully. The public plugin version remains `1.0.0`.

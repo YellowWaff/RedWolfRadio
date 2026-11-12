@@ -101,6 +101,10 @@ $commonFiles = @(
     'workshop-description.ru.txt',
     'previewimage.png'
 )
+$versionNotes = "release-notes-$Version.md"
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot $versionNotes) -PathType Leaf) {
+    $commonFiles += $versionNotes
+}
 
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 Copy-Item -LiteralPath $DllPath -Destination (Join-Path $releaseRoot 'RedWolfRadio.dll')

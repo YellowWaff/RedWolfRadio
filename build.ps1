@@ -42,7 +42,7 @@ if ($LASTEXITCODE) { throw 'Red Wolf Radio build failed' }
 if ($LASTEXITCODE) { throw 'Forwarding test build failed' }
 & (Join-Path $out 'forwarding-tests.exe')
 if ($LASTEXITCODE) { throw 'Forwarding tests failed' }
-foreach ($test in @('hotkeys', 'music_voice_control', 'music_controls', 'native_and_display', 'native_song_popup', 'native_player_ui')) {
+foreach ($test in @('game_build', 'hotkeys', 'music_voice_control', 'music_controls', 'native_and_display', 'native_song_popup', 'native_player_ui')) {
     & $compiler '-std=c++17' '-O2' '-Wall' '-Wextra' '-Werror' '-static' `
         (Join-Path $PSScriptRoot "tests\$test.cpp") $converterObject $miniaudioObject `
         '-lbcrypt' '-luser32' '-o' (Join-Path $out "$test-tests.exe")

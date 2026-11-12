@@ -1,6 +1,6 @@
-Red Wolf Radio 1.0.0
+Red Wolf Radio 1.0.1
 
-Bring your music to Workers & Resources: Soviet Republic. Requires Windows x64, WRSR 1.1.1.9 and Republic Mod Loader 1.0.1. Launch through RML with only one Red Wolf Radio copy enabled.
+Bring your music to Workers & Resources: Soviet Republic. Requires Windows x64, WRSR 1.1.1.13 or 1.1.1.9, and Republic Mod Loader 1.0.1. Launch through RML with only one Red Wolf Radio copy enabled.
 
 Play WAV, MP3, FLAC and RIFF XWMA/WMAudio2 from your Windows Music folder or a folder chosen in plugin/RedWolfRadio.ini. An optional Music folder beside the DLL is supported. Folders are scanned at every launch; album art is ignored. Keep all, selected or none of the original soundtrack without changing game files.
 
@@ -21,7 +21,7 @@ https://github.com/YellowWaff/RedWolfRadio
 
 РУССКИЙ
 
-Red Wolf Radio 1.0.0 — своя музыка в WRSR. Требуются Windows x64, WRSR 1.1.1.9 и Republic Mod Loader 1.0.1. Запускайте через RML; включайте только одну копию плагина.
+Red Wolf Radio 1.0.1 — своя музыка в WRSR. Требуются Windows x64, WRSR 1.1.1.13 или 1.1.1.9 и Republic Mod Loader 1.0.1. Запускайте через RML; включайте только одну копию плагина.
 
 WAV, MP3, FLAC и XWMA читаются из папки «Музыка» или пути в plugin/RedWolfRadio.ini. Можно включить Music рядом с DLL. Сканирование — при каждом запуске; обложки игнорируются. Оригинальный саундтрек можно сохранить, отключить или исключить отдельные треки.
 
