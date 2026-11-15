@@ -1,22 +1,40 @@
-Red Wolf Radio adds your own music to Workers & Resources: Soviet Republic through Republic Mod Loader.
+[b]Red Wolf Radio 1.0.1[/b]
 
-Version 1.0.1 requires Republic Mod Loader 1.0.1 and supports the verified Workers & Resources 1.1.1.13 and 1.1.1.9 binaries on Windows x64. Launch the game through RML. Enable only one copy of Red Wolf Radio.
+Play your own music in Workers & Resources: Soviet Republic alongside the original soundtrack or on its own. Game files and source music are preserved. No music is included.
 
-Play WAV, MP3, FLAC and RIFF XWMA/WMAudio2 from your Windows Music folder or a folder you choose. Folders are scanned on every launch, with optional plugin-local Music. Copy XWMA music from other Workshop items into your music folder to use it here. No tracks or filenames are hardcoded, and album art is ignored.
+[b]Requirements[/b]
+Windows x64, WRSR 1.1.1.13 or 1.1.1.9, and the original Republic Mod Loader 1.0.1 linked under Required Items. Launch through RML with only one Radio copy enabled.
 
-XWMA uses the game's music loader without conversion to WAV. The supported WMAudio2 profile is mono/stereo, 16-bit decoded samples, 8–48 kHz. Long or Unicode source paths use an unchanged compressed cache copy. WAV/MP3/FLAC use compatible cached WAV files. Keep all, selected or none of the original soundtrack. Game files and source music are preserved.
+[b]Getting started[/b]
+1. Subscribe to Radio and its required loader. Wait for Steam to finish downloading both.
+2. Enable Radio in RML; disable older local or Development copies.
+3. Add music to %USERPROFILE%\Music, or use RML’s Open settings to edit [Sources] ExternalPath in RedWolfRadio.ini. A blank path uses Windows’ configured Music folder, including folder redirection.
+4. Launch through RML. Folders and subfolders are scanned at every launch; album art is ignored. INI changes apply after restarting the game.
 
-In a loaded republic, open Settings → Other → Scripts (the 0101 icon), select Red Wolf Radio, and confirm with the green checkmark. One compact, draggable player shows the source filename without extension and refreshes automatically when the song changes. Its 360×128 UI-unit frame scales with the game. The four icon buttons are Previous, Restart, Play/Pause and Next; hover over an icon to see its action name in the title bar. Previous goes directly to the preceding track. Closing the window leaves music playing. Reopening starts it in the center; its position is not saved.
+An optional Music folder beside the DLL can be enabled in the INI. [Originals] Mode lets you keep the original soundtrack, exclude individual tracks or disable it completely; see the README for exclusions.
 
-The player is enabled by default with [Display] NativeSongPopup=true. The separate five-second title notification is optional and off by default: ShowTrackName=true enables it. Language=ru selects Russian hover descriptions and messages; filenames are unchanged. Add or edit these keys in the existing Display section.
+[b]Player and shortcuts[/b]
+In a loaded republic: Settings → Other → Scripts (0101 icon) → Red Wolf Radio → green checkmark.
 
-During gameplay: Ctrl+Shift+Right for Next; Ctrl+Shift+Left to restart, then a quick second press for Previous; Ctrl+Shift+Down to pause/resume. Shortcuts are configurable and work while the game is the foreground application. Track navigation preserves a user pause. Shortcuts are inactive on the main menu.
+The movable player shows the source filename without extension and updates automatically. Buttons: Previous, Restart, Play/Pause, Next. Hover for the action name. Drag the red title bar to move it. Close without stopping music; reopening centers the window.
 
-Defaults prepare five upcoming tracks, protect three previous tracks, and use a 4 GiB soft cache limit. Protected tracks may exceed the limit. Up to 64 playback entries are remembered during a launch. No music is included. English and Russian INI help and documentation are included.
+• Ctrl+Shift+Right — Next.
+• Ctrl+Shift+Left — Restart; press again within one second for Previous.
+• Ctrl+Shift+Down — Pause/resume.
 
-Edit plugin/RedWolfRadio.ini for folders, original exclusions, cache settings, shortcuts, the player and the optional title notification. Back up your customized INI outside Steam and game folders before any update, including ordinary Workshop updates. The 1.0 download replaced it with the shipped template, although the earlier 0.9.0 test had retained it. Check settings afterward and restore your backup with the game closed if needed.
+The Previous button goes back immediately. Shortcuts are configurable and work during gameplay while the game has focus. Switching tracks preserves pause.
 
-Source, documentation and downloads:
+[b]Formats and settings[/b]
+WAV, MP3, FLAC and RIFF XWMA/WMAudio2 are supported. XWMA plays without WAV conversion: mono/stereo, 16-bit decoded samples, 8–48 kHz. WAV/MP3/FLAC use compatible cached WAV files.
+
+Defaults keep five upcoming tracks ready and protect three previous tracks. The cache has a 4 GiB soft limit; protected tracks may exceed it. Cache: %LOCALAPPDATA%\RedWolfRadio.
+
+In [Display], NativeSongPopup=true enables the player. The separate five-second title notification is off by default; ShowTrackName=true enables it. Language=ru selects Russian messages and hover descriptions.
+
+[b]Updates and help[/b]
+Back up your customized INI and any plugin-local music outside Steam/game folders before updating. Check settings afterward; restore the backup with the game closed if needed.
+
+English/Russian instructions, source and downloads:
 https://github.com/YellowWaff/RedWolfRadio
 
-Character artwork is used with permission; separate artwork terms apply. Code is GPL-3.0-only. Not affiliated with 3DIVISION, Hooded Horse, Valve or the Republic Mod Loader authors.
+Code: GPL-3.0-only. Character artwork is used with permission under separate terms. Not affiliated with 3DIVISION, Hooded Horse, Valve or the RML authors.
