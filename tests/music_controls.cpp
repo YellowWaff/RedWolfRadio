@@ -62,7 +62,7 @@ static TsmHost fakeHost{};
 
 static void installVoice(FakeVoice* voice) {
     void* value = voice;
-    memcpy(engineMemory + rwr::kMusicSourceVoiceRva, &value, sizeof(value));
+    memcpy(engineMemory + gameBuild->engine->sourceVoiceRva, &value, sizeof(value));
     expectedVoice = voice;
 }
 
@@ -680,8 +680,10 @@ static void testUiCommandQueue() {
 }
 
 int main() {
+    for (const auto& build : rwr::kVerifiedGameBuilds) {
+    gameBuild = &build;
     engineMemory = static_cast<unsigned char*>(VirtualAlloc(nullptr,
-        rwr::kMusicSourceVoiceRva + sizeof(void*), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+        gameBuild->engine->sourceVoiceRva + sizeof(void*), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
     require(engineMemory != nullptr, "allocate fake engine source-voice slot");
     fakeHost.engineModule = engineMemory;
     fakeHost.configString = fakeConfigString;
@@ -704,5 +706,7 @@ int main() {
     host = nullptr;
     engineLoadingFlag = nullptr;
     VirtualFree(engineMemory, 0, MEM_RELEASE);
+    }
+    gameBuild = &rwr::kVerifiedGameBuilds[0];
     puts("All music control integration tests passed.");
 }

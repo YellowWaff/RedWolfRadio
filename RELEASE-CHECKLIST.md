@@ -1,5 +1,19 @@
 # Public release checklist
 
+## 1.0.2 compatibility preparation — November 25, 2026
+
+The local candidate targets the exact WRSR 1.2.0.9 binaries with the original RML 1.0.1. Space Program is installed on the test system. The public release remains 1.0.1 until the remaining acceptance and publication steps are completed.
+
+- [x] Distinguish the initially installed 1.2.0.8 files from Steam's subsequent 1.2.0.9 download, build `26898154`.
+- [x] Audit engine resolver/state/voice addresses, native UI code/globals and changed game/window layouts; retain exact binary/runtime checks and older profiles.
+- [x] Pass the full build and automated suites for all three profiles. Candidate DLL: `a35636a944693f5cb30cef8fc1e93f15139ad7c0c25a4cb95610b318f05b0adb`.
+- [x] Back up personal settings, prior DLL/diagnostics and the selected save; install the candidate without changing the INI.
+- [x] Start 1.2.0.9 through original RML: thirteen hooks, zero failures, bootstrap `0x0`; verify the live player and on-screen commands in a paused republic.
+- [x] Complete manual audible playback, volume, dragging, keyboard and natural-transition acceptance.
+- [x] Check normal shutdown/relaunch: sessions of 37m50s and 10m17s exited with `0x0`; the relaunch retained thirteen passing hooks, no failures, no lost trace events and unchanged settings. Automated native XWMA/optional display coverage is recorded separately from live acceptance.
+- [ ] Finalize English/Russian documentation and audit clean release archives containing the accepted DLL.
+- [ ] Publish source/tag, GitHub assets and the existing Workshop item; verify actual downloads and final personal settings.
+
 ## 1.0.1 publication status — November 11, 2026
 
 The tested `1.0.1` source, tag, [GitHub release](https://github.com/YellowWaff/RedWolfRadio/releases/tag/v1.0.1) and [Steam Workshop update](https://steamcommunity.com/sharedfiles/filedetails/?id=3805202523) are published. Both public GitHub archive downloads match their frozen hashes. Steam's upload and ordinary subscribed download are verified, and the updated localized listing/change notes are public. The personal INI and RML selections remained unchanged during this update; no settings restoration was needed.

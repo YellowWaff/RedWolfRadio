@@ -1,9 +1,9 @@
-[b]Red Wolf Radio 1.0.1[/b]
+[b]Red Wolf Radio 1.0.2[/b]
 
 Play your own music in Workers & Resources: Soviet Republic alongside the original soundtrack or on its own. Game files and source music are preserved. No music is included.
 
 [b]Requirements[/b]
-Windows x64, WRSR 1.1.1.13 or 1.1.1.9, and the original Republic Mod Loader 1.0.1 linked under Required Items. Launch through RML with only one Radio copy enabled.
+Windows x64, WRSR 1.2.0.9, 1.1.1.13 or 1.1.1.9, and the original Republic Mod Loader 1.0.1 linked under Required Items. Launch through RML with only one Radio copy enabled.
 
 [b]Getting started[/b]
 1. Subscribe to Radio and its required loader. Wait for Steam to finish downloading both.

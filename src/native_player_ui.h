@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string_view>
+#include "game_build.h"
 #include "rml_compat.h"
 #include "native_song_popup.h"
 #include "music_hotkeys.h"
@@ -74,6 +75,7 @@ using MeasureFn = TextRect* (*)(void*,TextRect*,float,float,const wchar_t*);
 
 struct Context {
     const TsmHost* host = nullptr;
+    const NativeUiLayout* ui = &kLegacyNativeUiLayout;
     NativePlayerSnapshotFn snapshot = nullptr;
     NativePlayerQueueFn queue = nullptr;
     DimensionsFn dimensions = nullptr;
@@ -99,8 +101,35 @@ struct Context {
 };
 inline Context context;
 inline unsigned char* base() { return static_cast<unsigned char*>(context.host->exeModule); }
+inline const NativeUiLayout& profile() { return *context.ui; }
 inline bool readable(const void* p, size_t n) {
     return context.host && context.host->readablePtr && p && context.host->readablePtr(p,n);
+}
+inline bool moduleReadable(const TsmHost* host,size_t rva,size_t bytes) {
+    return host && host->exeModule && host->readablePtr && rva<=host->exeSize &&
+        bytes<=host->exeSize-rva && host->readablePtr(static_cast<unsigned char*>(host->exeModule)+rva,bytes);
+}
+inline bool moduleReadable(size_t rva,size_t bytes) { return moduleReadable(context.host,rva,bytes); }
+inline bool rangeFits(size_t size,size_t offset,size_t bytes) { return offset<=size && bytes<=size-offset; }
+inline size_t identityBytes(const NativeUiLayout& ui) {
+    return std::max({size_t(0x240),kNativePlayerCookieOffset+sizeof(kNativePlayerCookie),
+        ui.windowTypeOffset+sizeof(int),ui.windowStyleOffset+sizeof(int)});
+}
+inline bool windowLayoutFits(const NativeUiLayout& ui) {
+    return rangeFits(ui.windowSize,0x23c,sizeof(int)) &&
+        rangeFits(ui.windowSize,kNativePlayerCookieOffset,sizeof(kNativePlayerCookie)) &&
+        rangeFits(ui.windowSize,ui.windowTypeOffset,sizeof(int)) &&
+        rangeFits(ui.windowSize,ui.windowStyleOffset,sizeof(int)) &&
+        rangeFits(ui.windowSize,ui.windowWidthOffset,sizeof(float)) &&
+        rangeFits(ui.windowSize,ui.windowHeightOffset,sizeof(float)) &&
+        rangeFits(ui.windowSize,ui.windowBottomOffset,sizeof(float)) &&
+        rangeFits(ui.windowSize,ui.windowContentBottomOffset,sizeof(float));
+}
+inline size_t gameFrameBytes(const NativeUiLayout& ui) {
+    return std::max({ui.gameWindowsBeginOffset+sizeof(void*),ui.gameWindowsEndOffset+sizeof(void*),
+        ui.gameHoveredWindowOffset+sizeof(void*),ui.gameBlockInputOffset+sizeof(unsigned char),
+        ui.gameSelectionOffset+sizeof(int),ui.gameHoverFlagOffset+sizeof(unsigned char),
+        ui.gameCloseDelayOffset+sizeof(float),ui.gameWhiteTextureOffset+sizeof(void*)});
 }
 template<class T> inline T read(const void* p, size_t offset) {
     T value; std::memcpy(&value,static_cast<const unsigned char*>(p)+offset,sizeof(value)); return value;
@@ -108,15 +137,16 @@ template<class T> inline T read(const void* p, size_t offset) {
 template<class T> inline void write(void* p, size_t offset, const T& value) {
     std::memcpy(static_cast<unsigned char*>(p)+offset,&value,sizeof(value));
 }
-inline void* panel() { return base()+0x9be060; }
-inline void* input() { return base()+0xa54b90; }
+inline void* panel() { return base()+profile().panelRva; }
+inline void* input() { return base()+profile().inputRva; }
 
 inline bool viewport(float& width, float& height, float& scale) {
-    if (!context.host || !readable(base()+0x99528c,4) || !readable(base()+0x995274,4) ||
-        !readable(base()+0x992088,4)) return false;
-    width = static_cast<float>(read<int>(base(),0x99528c));
-    height = static_cast<float>(read<int>(base(),0x995274));
-    scale = read<float>(base(),0x992088);
+    const auto& ui=profile();
+    if (!moduleReadable(ui.widthRva,sizeof(int)) || !moduleReadable(ui.heightRva,sizeof(int)) ||
+        !moduleReadable(ui.scaleRva,sizeof(float))) return false;
+    width = static_cast<float>(read<int>(base(),ui.widthRva));
+    height = static_cast<float>(read<int>(base(),ui.heightRva));
+    scale = read<float>(base(),ui.scaleRva);
     return width>=320 && width<=20000 && height>=200 && height<=20000 && scale>=.25f && scale<=8.f;
 }
 inline bool getLayout(void* window, Layout& result) {
@@ -133,20 +163,22 @@ inline void applyLayout(void* window,const Layout& l) {
     write(window,0x28,-l.frame.w/2.f);
     write(window,0x2c,-l.frame.h/2.f);
     // These derived dimensions are consumed by native dispatcher bookkeeping.
-    write(window,0x520,l.frame.w);
-    write(window,0x51c,l.frame.h);
-    write(window,0x250,l.frame.y+l.frame.h);
-    write(window,0x254,l.frame.y+l.frame.h);
+    write(window,profile().windowWidthOffset,l.frame.w);
+    write(window,profile().windowHeightOffset,l.frame.h);
+    write(window,profile().windowBottomOffset,l.frame.y+l.frame.h);
+    write(window,profile().windowContentBottomOffset,l.frame.y+l.frame.h);
 }
 inline bool guidedOverlayBlocks(void* game,void* window) {
-    if(!readable(static_cast<unsigned char*>(game)+0x13bf0,sizeof(void*))) return false;
-    void* overlay=read<void*>(game,0x13bf0);
+    if(!readable(static_cast<unsigned char*>(game)+profile().gameGuidedOverlayOffset,sizeof(void*))) return false;
+    void* overlay=read<void*>(game,profile().gameGuidedOverlayOffset);
     return readable(overlay,0x70) && read<unsigned char>(overlay,0x14) &&
         read<void*>(overlay,0x68)==window;
 }
 inline bool frontmost(void* game,void* window) {
-    if (!readable(static_cast<unsigned char*>(game)+0xcac0,16)) return false;
-    const auto begin=read<uintptr_t>(game,0xcac0),end=read<uintptr_t>(game,0xcac8);
+    if (!readable(static_cast<unsigned char*>(game)+profile().gameWindowsBeginOffset,sizeof(void*)) ||
+        !readable(static_cast<unsigned char*>(game)+profile().gameWindowsEndOffset,sizeof(void*))) return false;
+    const auto begin=read<uintptr_t>(game,profile().gameWindowsBeginOffset),
+        end=read<uintptr_t>(game,profile().gameWindowsEndOffset);
     return begin && end>=begin+sizeof(void*) && end-begin<sizeof(void*)*4096 &&
         readable(reinterpret_cast<void*>(begin),sizeof(void*)) &&
         read<void*>(reinterpret_cast<void*>(begin),0)==window;
@@ -170,14 +202,14 @@ inline bool hit(const Rect& r,const Vec3& mouse) {
     return contains(r,mouse);
 }
 inline bool whiteTexture(void* game) {
-    if (!readable(static_cast<unsigned char*>(game)+0xb048,sizeof(void*)) ||
-        !readable(base()+0x9ead08,sizeof(void*))) return false;
-    auto* texture=read<void*>(game,0xb048);
+    if (!readable(static_cast<unsigned char*>(game)+profile().gameWhiteTextureOffset,sizeof(void*)) ||
+        !moduleReadable(profile().shaderRva,sizeof(void*))) return false;
+    auto* texture=read<void*>(game,profile().gameWhiteTextureOffset);
     if (!readable(texture,sizeof(void*))) return false;
     auto* table=read<void*>(texture,0);
     if (!readable(table,0x78)) return false;
     const auto bind=read<TextureFn>(table,0x70);
-    void* shader=read<void*>(base(),0x9ead08);
+    void* shader=read<void*>(base(),profile().shaderRva);
     if (!readable(reinterpret_cast<void*>(bind),1) || !readable(shader,sizeof(void*))) return false;
     bind(texture,0,shader); return true;
 }
@@ -225,11 +257,12 @@ inline void transportIcon(void* game,const Rect& button,float scale,size_t index
     }
 }
 inline void text(float x,float y,const wchar_t* value,unsigned long color=0xfff0f0f0u) {
-    auto* font=read<void*>(base(),0x994200);
-    context.print(base()+0x996fb0,font,x,y,color,value);
+    auto* font=read<void*>(base(),profile().fontRva);
+    context.print(base()+profile().fontManagerRva,font,x,y,color,value);
 }
 inline float textWidth(const wchar_t* value) {
-    void* font=read<void*>(base(),0x994200);
+    if(!moduleReadable(profile().fontRva,sizeof(void*))) return -1.f;
+    void* font=read<void*>(base(),profile().fontRva);
     if(!readable(font,sizeof(void*))) return -1.f;
     void* table=read<void*>(font,0);
     if(!readable(table,0x58)) return -1.f;
@@ -317,11 +350,18 @@ inline std::array<std::array<wchar_t,251>,2> measuredNameLines(std::wstring_view
 }
 } // namespace native_player_detail
 
-inline bool initializeNativePlayerUi(const TsmHost* host,NativePlayerSnapshotFn snapshot,NativePlayerQueueFn queue) {
+inline bool initializeNativePlayerUi(const TsmHost* host,NativePlayerSnapshotFn snapshot,NativePlayerQueueFn queue,
+    const GameBuild* build) {
     using namespace native_player_detail;
     if(!host || !host->readablePtr || !host->exeModule || !host->engineModule || !snapshot || !queue ||
-        host->exeSize<0xa54b90+0x700) return false;
-    Context candidate{}; candidate.host=host; candidate.snapshot=snapshot; candidate.queue=queue;
+        !build || !build->ui || !windowLayoutFits(*build->ui)) return false;
+    const auto& ui=*build->ui;
+    if(!moduleReadable(host,ui.panelRva,0x6750) || !moduleReadable(host,ui.inputRva,0x700) ||
+        !moduleReadable(host,ui.fontRva,sizeof(void*)) || !moduleReadable(host,ui.fontManagerRva,sizeof(void*)) ||
+        !moduleReadable(host,ui.shaderRva,sizeof(void*)) || !moduleReadable(host,ui.widthRva,sizeof(int)) ||
+        !moduleReadable(host,ui.heightRva,sizeof(int)) || !moduleReadable(host,ui.scaleRva,sizeof(float))) return false;
+    Context candidate{}; candidate.host=host; candidate.ui=build->ui;
+    candidate.snapshot=snapshot; candidate.queue=queue;
     const auto engine=static_cast<HMODULE>(host->engineModule);
 #define RWR_NATIVE_EXPORT(member,type,name) candidate.member=reinterpret_cast<type>(GetProcAddress(engine,name)); if(!candidate.member) return false
     RWR_NATIVE_EXPORT(dimensions,DimensionsFn,"?SetDimensions@C3D_PANEL2D@@QEAAXMM@Z");
@@ -338,24 +378,21 @@ inline bool initializeNativePlayerUi(const TsmHost* host,NativePlayerSnapshotFn 
     RWR_NATIVE_EXPORT(collision,CollisionFn,"?Collision@C3D_PANEL2D@@QEAA_NVC3DVECTOR3@@MM@Z");
     RWR_NATIVE_EXPORT(print,PrintFn,"?PrintLeftUnicodeNoArg@C3D_FONTMANAGER@@QEAAXPEAVC3D_FONT@@MMKPEB_W@Z");
 #undef RWR_NATIVE_EXPORT
-    auto* b=static_cast<unsigned char*>(host->exeModule);
-    if(!host->readablePtr(b+0x9be060,0x6750) || !host->readablePtr(b+0xa54b90,0x700) ||
-        !host->readablePtr(b+0x994200,sizeof(void*)) || !host->readablePtr(b+0x996fb0,sizeof(void*))) return false;
     context=candidate; return true;
 }
 
 inline bool isNativePlayerWindow(void* window) {
     using namespace native_player_detail;
-    return readable(window,0x250) && read<int>(window,0x23c)==kNativePlayerReference &&
+    return readable(window,identityBytes(profile())) && read<int>(window,0x23c)==kNativePlayerReference &&
         read<int>(window,0x34)==1 && read<int>(window,0x38)==0x983e &&
-        read<int>(window,0x248)==4 && read<int>(window,0x24c)==1 &&
+        read<int>(window,profile().windowTypeOffset)==4 && read<int>(window,profile().windowStyleOffset)==1 &&
         read<std::uint64_t>(window,kNativePlayerCookieOffset)==kNativePlayerCookie;
 }
 inline bool markNativePlayerWindow(void* window) {
     using namespace native_player_detail;
-    if(!readable(window,0x5d8) || read<int>(window,0x23c)!=kNativePlayerReference ||
+    if(!readable(window,profile().windowSize) || read<int>(window,0x23c)!=kNativePlayerReference ||
         read<int>(window,0x34)!=1 || read<int>(window,0x38)!=0x983e ||
-        read<int>(window,0x248)!=4 || read<int>(window,0x24c)!=1) return false;
+        read<int>(window,profile().windowTypeOffset)!=4 || read<int>(window,profile().windowStyleOffset)!=1) return false;
     write(window,kNativePlayerCookieOffset,kNativePlayerCookie);
     context.dragIdentity=0; context.haveSnapshot=false; context.openedAt=GetTickCount64();
     context.lastSnapshotAt=0; context.haveNameLines=false;
@@ -377,17 +414,18 @@ inline bool nativePlayerHit(void* game,void* window) {
 inline void drawNativePlayerFrame(void* game,void* window,int index) {
     using namespace native_player_detail;
     (void)index;
-    if(!isNativePlayerWindow(window) || !readable(window,0x5d8) || read<unsigned char>(window,0)!=0 ||
-        !readable(game,0xcb88)) return;
+    if(!isNativePlayerWindow(window) || !readable(window,profile().windowSize) || read<unsigned char>(window,0)!=0 ||
+        !readable(game,gameFrameBytes(profile())) || !moduleReadable(profile().fontRva,sizeof(void*)) ||
+        !moduleReadable(profile().fontManagerRva,sizeof(void*))) return;
     Layout l{}; if(!getLayout(window,l)) return;
-    auto* font=read<void*>(base(),0x994200);
+    auto* font=read<void*>(base(),profile().fontRva);
     if(!readable(font,sizeof(void*))) return;
     Vec3 mouse{}; context.mouse(input(),&mouse);
     const bool front=frontmost(game,window);
     const bool down=context.down(input());
     const auto now=GetTickCount64();
     const bool inputAllowed=front && now-context.openedAt>=350 &&
-        !read<unsigned char>(game,0xfc1) && read<int>(game,0xad74)<0 &&
+        !read<unsigned char>(game,profile().gameBlockInputOffset) && read<int>(game,profile().gameSelectionOffset)<0 &&
         !guidedOverlayBlocks(game,window);
     if(context.dragIdentity==reinterpret_cast<uintptr_t>(window)) {
         if(!down || !inputAllowed) context.dragIdentity=0;
@@ -407,12 +445,12 @@ inline void drawNativePlayerFrame(void* game,void* window,int index) {
     if(minimized) visibleFrame.h=kTitleHeight*l.scale;
     const bool hovered=hit(visibleFrame,mouse) || context.dragIdentity==reinterpret_cast<uintptr_t>(window);
     write<unsigned char>(window,0x10,hovered?1:0);
-    if(hovered) { write<unsigned char>(game,0xfc3,1); write(game,0xcb80,window); }
+    if(hovered) { write<unsigned char>(game,profile().gameHoverFlagOffset,1); write(game,profile().gameHoveredWindowOffset,window); }
     // A click on an exposed background window remains available to the native
     // dispatcher's end-of-frame focus promotion. Only foreground actions consume.
     if(inputAllowed && hovered && context.press(input())) {
         if(hit(l.close,mouse) && context.takePress(input())) {
-            write<unsigned char>(window,0,1); write(game,0xfc8,-.5f);
+            write<unsigned char>(window,0,1); write(game,profile().gameCloseDelayOffset,-.5f);
             context.dragIdentity=0; return;
         }
         if(hit(l.title,mouse) && context.takePress(input())) {

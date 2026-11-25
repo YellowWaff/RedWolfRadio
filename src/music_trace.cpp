@@ -31,7 +31,7 @@
 #include "game_build.h"
 
 namespace {
-constexpr char kVersion[] = "1.0.1";
+constexpr char kVersion[] = "1.0.2";
 constexpr size_t kNoHistory = static_cast<size_t>(-1);
 constexpr size_t kHistoryLimit = 64;
 constexpr ULONGLONG kPreviousRepeatMilliseconds = 1000;
@@ -169,9 +169,6 @@ PathFn originalPathResolver = nullptr;
 
 constexpr size_t kPathStolenBytes = 18;
 constexpr size_t kPathContinuationBytes = kPathStolenBytes + 14;
-static const unsigned char expectedPathPrologue[kPathStolenBytes] = {
-    0x40,0x55,0x41,0x56,0x48,0x81,0xec,0x18,0x02,0x00,0x00,0x48,0x8b,0x05,0xb6,0x64,0x15,0x00
-};
 
 // RML 1.0.1's Tesmio compatibility trampoline copies stolen instructions
 // verbatim. This prologue contains a RIP-relative security-cookie load, so its
@@ -1593,7 +1590,7 @@ int processMusicControls(rwr::MusicAction action, int status, bool loading, ULON
         status = 1;
     } else if (changePause) {
         const auto result = rwr::setMusicVoicePaused(static_cast<HMODULE>(host->engineModule),
-            engineLoadingFlag, desiredPause, expectedVoice);
+            engineLoadingFlag, desiredPause, expectedVoice, gameBuild->engine->sourceVoiceRva);
         AcquireSRWLockExclusive(&stateLock);
         if (result.status == rwr::VoiceControlStatus::Applied) {
             manager.voicePaused = desiredPause;
@@ -1810,7 +1807,7 @@ bool installNativePlayer() {
         !nativePlayerPrefixMatches(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix) ||
         !nativePlayerPrefixMatches(gameBuild->nativePlayerBodyRva, kNativePlayerBodyPrefix) ||
         !nativePlayerPrefixMatches(gameBuild->nativePlayerHitRva, kNativePlayerHitPrefix) ||
-        !rwr::initializeNativePlayerUi(host, currentNativePlayerSnapshot, rwr::queueUiMusicAction)) return false;
+        !rwr::initializeNativePlayerUi(host, currentNativePlayerSnapshot, rwr::queueUiMusicAction, gameBuild)) return false;
     // Prepublish every forwarding path before the first hook request. A partially
     // installed set only forwards foreign windows; creation/ownership is last.
     if (!prepareNativePlayerContinuation(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix, previousNativePlayerFrame) ||
@@ -1842,11 +1839,12 @@ void renderTrackNotification() {
     ReleaseSRWLockShared(&stateLock);
     if (text.empty() || !host || !host->readablePtr || !hudPrint) return;
     auto* base = reinterpret_cast<unsigned char*>(host->exeModule);
-    auto* fontManager = base + 0x996fb0;
-    auto** fontSlot = reinterpret_cast<void**>(base + 0x994200);
-    auto* width = reinterpret_cast<int*>(base + 0x99528c);
-    auto* height = reinterpret_cast<int*>(base + 0x995274);
-    auto* scale = reinterpret_cast<float*>(base + 0x992088);
+    const auto& ui = *gameBuild->ui;
+    auto* fontManager = base + ui.fontManagerRva;
+    auto** fontSlot = reinterpret_cast<void**>(base + ui.fontRva);
+    auto* width = reinterpret_cast<int*>(base + ui.widthRva);
+    auto* height = reinterpret_cast<int*>(base + ui.heightRva);
+    auto* scale = reinterpret_cast<float*>(base + ui.scaleRva);
     if (!host->readablePtr(fontManager, 8) || !host->readablePtr(fontSlot, sizeof(void*)) ||
         !host->readablePtr(width, 4) || !host->readablePtr(height, 4) || !host->readablePtr(scale, 4) ||
         !*fontSlot || !host->readablePtr(*fontSlot, 8) || *width < 320 || *width > 20000 ||
@@ -2153,7 +2151,9 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* api, TsmPlugin
     api->log("[RedWolfRadio] Engine SHA-256: %s", engineOk ? engineHash : "unreadable");
     api->log("[RedWolfRadio] Republic runtime SHA-256: %s", runtimeOk ? runtimeHash : "unreadable");
     if (!exeOk || !engineOk || !verified) {
-        api->log("[RedWolfRadio] Declined: unverified game/engine pair. Supported builds: 1.1.1.9 and 1.1.1.13. No hooks installed.");
+        api->log("[RedWolfRadio] Declined: unverified game/engine pair. No hooks installed.");
+        for (const auto& build : rwr::kVerifiedGameBuilds)
+            api->log("[RedWolfRadio] Verified profile available: WRSR %s.", build.version);
         return 1;
     }
     if (!runtimeOk || strcmp(runtimeHash, kRuntimeHash)) {
@@ -2163,7 +2163,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* api, TsmPlugin
     gameBuild = verified;
     api->log("[RedWolfRadio] Selected verified WRSR %s compatibility profile.", gameBuild->version);
     engineLoadingFlag = reinterpret_cast<volatile char*>(
-        reinterpret_cast<unsigned char*>(api->engineModule) + 0x1dc6e1);
+        reinterpret_cast<unsigned char*>(api->engineModule) + gameBuild->engine->loadingFlagRva);
     // Never bypass an existing import owner.
     for (unsigned i = 0; i < 8; ++i) {
         void** slot = api->findIatSlot(api->exeModule, "C3DDLL64.dll", imports[i]);
@@ -2192,7 +2192,8 @@ extern "C" __declspec(dllexport) int TsmPluginStart() {
         closeLogBeforeHooks(); return 1;
     }
     unsigned installed = 0;
-    auto* pathTarget = reinterpret_cast<unsigned char*>(host->engineModule) + 0x776d0;
+    auto* pathTarget = reinterpret_cast<unsigned char*>(host->engineModule) + gameBuild->engine->pathResolverRva;
+    const auto& expectedPathPrologue = gameBuild->engine->pathResolverPrefix;
     unsigned char* relocatedPathContinuation = nullptr;
     if (memcmp(pathTarget, expectedPathPrologue, kPathStolenBytes) == 0) {
         relocatedPathContinuation = host->allocNear(pathTarget, 64);

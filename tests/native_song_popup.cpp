@@ -91,7 +91,8 @@ static void writeJump(unsigned char* where, const void* target) {
 static void testPrivateUiContinuations(TsmHost& api) {
     // Real verified prologues run before stand-in bodies that unwind their
     // register saves and transfer to the C++ ABI probes.
-    constexpr size_t bytes = 0x800000;
+    const size_t bytes = std::max({gameBuild->nativePlayerFrameRva,
+        gameBuild->nativePlayerBodyRva, gameBuild->nativePlayerHitRva}) + 0x1000;
     auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     require(memory != nullptr, "UI stand-in module"); api.exeModule = memory; api.exeSize = bytes;
     require(!nativePlayerPrefixMatches(gameBuild->nativePlayerFrameRva, kNativePlayerFramePrefix), "changed frame refused");
@@ -185,8 +186,9 @@ static void testBuild() {
     require(contains(text, L"Updating."), "busy music lock never blocks native UI");
     manager.runtimeEnabled = true; manager.activeTrackId = track.id; manager.activeTrackPending = false;
 
-    auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, 0x700000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-    require(memory != nullptr, "test module allocation"); api.exeModule = memory; api.exeSize = 0x700000;
+    const size_t dialogBytes = std::max(gameBuild->nativeDialogRva, gameBuild->scriptDialogReturnRva) + 0x1000;
+    auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, dialogBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    require(memory != nullptr, "test module allocation"); api.exeModule = memory; api.exeSize = dialogBytes;
     require(!installNativeSongPopup() && hookRequests == 0, "unknown owner refused before host hook request");
     memcpy(memory + gameBuild->nativeDialogRva, kNativeDialogPrefix, 14);
     require(!installNativeSongPopup() && hookRequests == 0, "changed script caller refused before hook request");
@@ -197,12 +199,12 @@ static void testBuild() {
     nativeBody[0] = 0xff; nativeBody[1] = 0x25;
     const auto fakeAddress = reinterpret_cast<uintptr_t>(fakeDialog);
     memcpy(nativeBody + 6, &fakeAddress, sizeof(fakeAddress));
-    DWORD old = 0; require(VirtualProtect(memory, 0x700000, PAGE_EXECUTE_READ, &old) &&
-        FlushInstructionCache(GetCurrentProcess(), memory, 0x700000), "executable stand-in native body");
+    DWORD old = 0; require(VirtualProtect(memory, dialogBytes, PAGE_EXECUTE_READ, &old) &&
+        FlushInstructionCache(GetCurrentProcess(), memory, dialogBytes), "executable stand-in native body");
     manager.config.nativeSongPopup = false;
     require(!installNativeSongPopup() && hookRequests == 0, "disabled popup does not install");
     manager.config.nativeSongPopup = true; api.exeSize = 0x1000;
-    require(!installNativeSongPopup() && hookRequests == 0, "short module refused"); api.exeSize = 0x700000;
+    require(!installNativeSongPopup() && hookRequests == 0, "short module refused"); api.exeSize = dialogBytes;
     require(installNativeSongPopup() && hookRequests == 1 && previousNativeDialog.load() != nullptr,
         "verified optional hook installed with private continuation");
 

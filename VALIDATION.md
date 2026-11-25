@@ -450,3 +450,31 @@ The latest existing session ran **23:50:57–23:52:45 America/Chicago on Novembe
 The default bilingual and dedicated Russian Workshop descriptions were refreshed through Steam's owner editor at **00:13 on November 15, 2026**. The text now gives numbered installation steps, explains the portable music path and restart requirement, distinguishes the Previous button from the keyboard shortcut, and uses concise backup guidance. Requirements continue to identify the original RML 1.0.1 item. The version remains 1.0.1.
 
 Both public language views were checked. Steam's public metadata description matches the canonical bilingual source after newline normalization; the content manifest remains `600644143637394593` and file size remains `6476609` bytes. The released archives and tag remain unchanged. Review evidence is retained locally under `evidence/workshop-review-20261115/`, including before/after page text, `public-metadata-after.json` and `workshop-description-updated.jpg`.
+
+## 1.0.2 compatibility candidate for WRSR 1.2.0.9 — November 25, 2026
+
+### Exact installed build and static audit
+
+The initial installation was WRSR 1.2.0.8, confirmed by its game log and Steam build `26869140`. Radio 1.0.1 declined that unknown executable/engine pair before installing hooks. Steam subsequently downloaded actual **1.2.0.9**, build **`26898154`**, at **11:17:02 America/Chicago on November 25, 2026**, with result `No Error`. The Space Program DLC is installed on this test system.
+
+The new profile accepts only EXE SHA-256 `3eb4649c01c6a4e01f86ace3bd8135d6359ec3774cf93e17ab69c0f1b65e6d28` paired with engine SHA-256 `3cda80ab81ba3f30acfb972c3c71caf460fdc618548f9f87e88d0aab2b96fa26`. The original RML 1.0.1 runtime retains SHA-256 `761ca3aee81c77034059258310e5eb4e3df14f94d21d030a96b9665879fd19d0`. The preliminary 1.2.0.8 binaries are preserved separately and are not accepted by the new profile.
+
+The audit verified the relocated music resolver and RIP-relative prefix, loading flag, source voice, native dialog/Script caller, player frame/body/hit functions, HUD boundary, UI globals and changed game/window field offsets. Window size grew from `0x5d8` to `0x6d8`; selected dimensions moved while the cookie, identity and other fixed header fields remained stable. The eight music exports and thirteen engine UI exports retain their signatures. Recorded music/resolver instruction comparisons, UI API/vtable checks and EXE disassembly evidence are retained under `evidence/compat-1.2.0.9/engine-audit/` and `exe-audit/`.
+
+### Automated checks and first live checkpoint
+
+The full build and automated suites pass for the retained 1.1.1.9 and 1.1.1.13 profiles and the new 1.2.0.9 profile. Coverage includes exact paired hashes and mixed/unknown rejection, the selected voice slot, all music controls, native continuations, bounded per-profile UI fixtures, optional HUD rendering, format conversion/native XWMA routing and source preservation. The current candidate DLL SHA-256 is **`a35636a944693f5cb30cef8fc1e93f15139ad7c0c25a4cb95610b318f05b0adb`**. Evidence: `evidence/compat-1.2.0.9/build.log` and `tests-review/`.
+
+The DLL was installed into the subscribed Radio item at **11:22:44** while the game and RML were closed. The personalized INI remained byte-for-byte unchanged at SHA-256 `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`. Pre-install DLL, settings and diagnostic backups are outside the game/Workshop folders. The selected save was backed up before the paused republic was loaded.
+
+Game PID `50572` started through the original RML at **11:23:06**. Radio selected its verified 1.2.0.9 profile and activated thirteen hooks with zero failures; all thirteen hook chains report `PASS`, and bootstrap status is `0x0`. The subscribed Script action opened the compact player with a Cyrillic source filename. On-screen Next, true Pause, Previous while paused, Restart while paused and Resume were observed, with updated titles and applied trace commands. At this checkpoint the trace has no failed music commands or failed-load timeouts.
+
+Manual listening, volume, dragging, keyboard shortcuts and a natural song transition have been requested from the user. Normal shutdown/relaunch and public publication remain pending at this checkpoint. The older profiles were tested automatically; they have not been rerun live. DLC campaign progression is outside these music/player checks. Initial live evidence is retained in `evidence/compat-1.2.0.9/smoke-first/` and `player-first-live.png`.
+
+### Completed user acceptance, normal shutdown and relaunch
+
+The user confirmed normal music and volume, working player dragging and keyboard shortcuts, and a natural transition to the next song. The first session ended normally at **12:00:55 America/Chicago on November 25, 2026**, after **37m50s**, with exit code `0x0`. The user relaunched through original RML at **12:01:17**; the compact player remained active and displayed changing source titles. A normal Quit to Desktop then completed at **12:11:34**, after **10m17s**, again with exit code `0x0`.
+
+The relaunch report identifies the same tested `a35636a944693f5cb30cef8fc1e93f15139ad7c0c25a4cb95610b318f05b0adb` DLL, thirteen hooks, zero hook failures, thirteen passing hook chains and bootstrap status `0`. The completed trace records five loads and five plays, no failed-load timeouts or failed commands, and `dropped=0`; its final Stop completed successfully. The runtime log has no `ERROR` entries, and the session summary reports zero final hook-chain audit issues. Both sessions' evidence is retained under `evidence/compat-1.2.0.9/user-acceptance/`.
+
+The personal INI still matches SHA-256 `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`; the current RML configuration still matches its pre-install backup at `8baf1c9a903ab5e3248b92e1dc1e4bbe760f24072a4b8947f76aa01f562a573e`. This completes the local compatibility acceptance. Automated native XWMA, conversion and optional HUD coverage remains distinct from the live checks above; no new audible test of every format or full DLC campaign is claimed. Publication and actual subscribed delivery are separate release steps.

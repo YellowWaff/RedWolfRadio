@@ -6,11 +6,11 @@
 
 Red Wolf Radio adds user music to **Workers & Resources: Soviet Republic** through Republic Mod Loader while preserving the game's files and music controls.
 
-Red Wolf Radio **1.0.1** supports verified compatibility profiles for Workers & Resources **1.1.1.13** and **1.1.1.9**, with Republic Mod Loader **1.0.1** on Windows x64. The full build, automated suites and initial in-game acceptance on 1.1.1.13 pass.
+Red Wolf Radio **1.0.2** supports verified compatibility profiles for Workers & Resources **1.2.0.9**, **1.1.1.13** and **1.1.1.9**, with the original Republic Mod Loader **1.0.1** on Windows x64. The full build and automated suites pass for all three profiles. On 1.2.0.9, startup, native-player GUI commands, user-confirmed music/volume/dragging/shortcuts/natural transitions, normal shutdown and relaunch passed. The Space Program DLC was installed for testing; Radio does not require that DLC. Older profiles have automated coverage for this update and have not been rerun live.
 
-The plugin checks the exact executable/engine pair and RML runtime before installing hooks. Each supported game build has its own player-window, Script-dialog and optional HUD addresses; unverified builds still decline to activate. Startup diagnostics identify the selected game profile and report the actual SHA-256 hashes. See [1.0.1 release notes](release-notes-1.0.1.md).
+The plugin checks the exact executable/engine pair and RML runtime before installing hooks. Each inspected game profile selects its engine music state, path-resolver prefix, native UI globals and object layout, plus player-window, Script-dialog and optional HUD addresses. Unverified builds still decline to activate. Startup diagnostics identify the selected profile and report the actual SHA-256 hashes. See [1.0.2 release notes](release-notes-1.0.2.md) and the [focused test checklist](https://github.com/YellowWaff/RedWolfRadio/blob/main/TESTING-1.0.2.md).
 
-Version 1.0 adds external XWMA playback and a compact live music player with icon controls. [Русская инструкция](README.ru.md).
+Music formats, INI keys and defaults, cache behavior and controls are unchanged in this update. External XWMA playback and the compact live player remain available. [Русская инструкция](README.ru.md).
 
 ## Current behavior
 
@@ -28,7 +28,7 @@ Version 1.0 adds external XWMA playback and a compact live music player with ico
 
 Custom XWMA support is limited to the game's verified WMAudio2 profile (mono/stereo, 16-bit decoded samples, 8–48 kHz). Malformed containers and other WMA profiles are omitted with a diagnostic. A short ASCII path plays directly; a Unicode or long path uses an unchanged `.xwma` cache copy. Neither route converts XWMA to WAV. The game still decodes compressed audio during playback. WAV/FLAC/MP3 keep their existing conversion route.
 
-The routed absolute cache path must also fit the game's narrow filename buffer. The plugin uses an ASCII DOS short-path alias when Windows provides one. A non-ASCII cache path without a usable alias fails with a diagnostic; Cyrillic source filenames work through a suitable cache path. The cache location is not configurable in 1.0.
+The routed absolute cache path must also fit the game's narrow filename buffer. The plugin uses an ASCII DOS short-path alias when Windows provides one. A non-ASCII cache path without a usable alias fails with a diagnostic; Cyrillic source filenames work through a suitable cache path. The cache location is not configurable.
 
 ## Install
 

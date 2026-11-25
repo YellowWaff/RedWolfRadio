@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2 - 2026-11-25
+
+- Add an exact executable/engine profile for WRSR 1.2.0.9 while retaining the 1.1.1.13 and 1.1.1.9 profiles and original RML 1.0.1 runtime requirement.
+- Select the engine path-resolver prefix, loading flag and source-voice location from the matched profile.
+- Select the relocated native dialog, Script bridge, player and optional HUD boundaries together with the corresponding UI globals and game/window object layout. The Space Program game update changed both code addresses and field offsets.
+- Preserve original game files, music formats, INI keys and defaults, cache behavior, and player/keyboard controls. Unknown game/engine pairs and unverified RML runtimes still decline to activate.
+- Pass the full build and automated suites for all three profiles. Initial 1.2.0.9 startup installed thirteen hooks with zero failures and passed all thirteen chain-integrity checks; the subscribed Script action opened the native player and GUI command checks passed.
+- Pass user-confirmed normal music, music volume, dragging, keyboard shortcuts and a natural track transition on 1.2.0.9 with the Space Program DLC installed. Record normal exits for the roughly 37m50s user session and subsequent 10m17s relaunch session, with Radio active, zero final audit issues and no runtime ERROR entries. Older profiles have not been rerun live for this update. Radio adds no DLC requirement.
+
 ## 1.0.1 - 2026-11-11
 
 - Add an exact executable/engine compatibility profile for WRSR 1.1.1.13 while retaining the verified 1.1.1.9 profile and RML 1.0.1 requirement.

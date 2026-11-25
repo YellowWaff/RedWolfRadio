@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <cstdint>
+#include "game_build.h"
 
 namespace rwr {
 
@@ -10,11 +11,11 @@ static_assert(sizeof(void*) == 8, "Verified music voice control requires x64");
 
 // Only use after the existing engine hash check, and on the game music thread.
 // The verified C3DDLL64.dll imports XAudio2_8.dll. Its source voice lives at
-// RVA 0x1dc7f0; the XAudio2 2.8 x64 Start/Stop slots are 19/20. The game's
+// a per-build RVA; the XAudio2 2.8 x64 Start/Stop slots are 19/20. The game's
 // Pause/Resume exports merely change volume and do not preserve song position.
 // IXAudio2SourceVoice::Stop(0, 0) preserves buffers and the playback cursor:
 // https://learn.microsoft.com/windows/win32/api/xaudio2/nf-xaudio2-ixaudio2sourcevoice-stop
-constexpr uintptr_t kMusicSourceVoiceRva = 0x1dc7f0;
+constexpr uintptr_t kMusicSourceVoiceRva = kLegacyEngineLayout.sourceVoiceRva;
 constexpr unsigned kMusicVoiceStartSlot = 19;
 constexpr unsigned kMusicVoiceStopSlot = 20;
 
@@ -52,7 +53,7 @@ inline bool executableVoiceMethod(const void* method) {
 // While loading, defer the command until a later music status poll.
 // expectedVoice optionally prevents a resume from applying to a replaced voice.
 inline VoiceControlResult setMusicVoicePaused(HMODULE engine, const volatile char* loadingFlag,
-    bool paused, void* expectedVoice = nullptr) {
+    bool paused, void* expectedVoice = nullptr, uintptr_t sourceVoiceRva = kMusicSourceVoiceRva) {
     const DWORD saved = GetLastError();
     VoiceControlResult result{};
     const auto finish = [&]() { SetLastError(saved); return result; };
@@ -64,7 +65,7 @@ inline VoiceControlResult setMusicVoicePaused(HMODULE engine, const volatile cha
         result.error = S_FALSE;
         return finish();
     }
-    const auto* slot = reinterpret_cast<const unsigned char*>(engine) + kMusicSourceVoiceRva;
+    const auto* slot = reinterpret_cast<const unsigned char*>(engine) + sourceVoiceRva;
     if (!detail::readVoiceMemory(slot, &result.voice, sizeof(result.voice))) return finish();
     if (!result.voice) {
         result.status = VoiceControlStatus::NoVoice;

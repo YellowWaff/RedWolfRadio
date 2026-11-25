@@ -22,11 +22,13 @@ static int readable(const void* p, size_t bytes) {
     return start <= end && bytes <= end - start;
 }
 static TsmHost api{};
+static const GameBuild* selectedBuild = &kVerifiedGameBuilds[0];
+static const NativeUiLayout& selectedUi() { return *selectedBuild->ui; }
 static unsigned char* executable = nullptr;
-static constexpr size_t executableSize = 0xa55300;
-static std::array<unsigned char, 0x13bf8> game{};
+static size_t executableSize = 0;
+static std::vector<unsigned char> game;
 static std::array<unsigned char, 0x70> guide{};
-static std::array<unsigned char, 0x5d8> window{}, otherWindow{};
+static std::vector<unsigned char> window, otherWindow;
 static std::array<void*, 2> windows{};
 static std::array<void*, 15> textureTable{};
 static std::array<void*, 11> fontTable{};
@@ -77,7 +79,7 @@ static bool collision(void* p, ui::Vec3* point, float insetX, float insetY) {
     return result;
 }
 static void print(void* manager, void* actualFont, float, float, unsigned long, const wchar_t* text) {
-    require(manager == executable + 0x996fb0 && actualFont == &font, "literal native font call ABI");
+    require(manager == executable + selectedUi().fontManagerRva && actualFont == &font, "literal native font call ABI");
     printed.emplace_back(text);
     whiteBound = false; // Native font rendering binds its own texture.
 }
@@ -112,33 +114,41 @@ static void paint(bool refresh = true) {
     drawNativePlayerFrame(game.data(), window.data(), 0);
 }
 static void reset() {
-    game.fill(0); guide.fill(0); window.fill(0); otherWindow.fill(0);
+    std::fill(game.begin(),game.end(),0); guide.fill(0);
+    std::fill(window.begin(),window.end(),0); std::fill(otherWindow.begin(),otherWindow.end(),0);
     snapshots = consumed = bound = 0; actions.clear(); printed.clear(); rectangles.clear(); measured.clear();
     mouse = {}; mouseDown = mousePress = false; queueAccepts = true; whiteBound = false;
     ui::context = {};
     api.exeModule = executable; api.exeSize = executableSize; api.readablePtr = readable;
-    ui::context.host = &api; ui::context.snapshot = snapshot; ui::context.queue = queue;
+    ui::context.host = &api; ui::context.ui = selectedBuild->ui;
+    ui::context.snapshot = snapshot; ui::context.queue = queue;
     ui::context.dimensions = dimensions; ui::context.position = position;
     ui::context.rotationCenter = rotationCenter; ui::context.color = color;
     ui::context.rotation = rotation; ui::context.scale = scale; ui::context.draw = draw;
     ui::context.mouse = mousePosition; ui::context.down = down;
     ui::context.press = press; ui::context.takePress = takePress;
     ui::context.collision = collision; ui::context.print = print;
-    ui::write(executable, 0x99528c, 1440); ui::write(executable, 0x995274, 1080);
-    ui::write(executable, 0x992088, 1.f); ui::write(executable, 0x994200, &font);
-    ui::write(executable, 0x9ead08, &shader);
+    ui::write(executable, selectedUi().widthRva, 1440); ui::write(executable, selectedUi().heightRva, 1080);
+    ui::write(executable, selectedUi().scaleRva, 1.f); ui::write(executable, selectedUi().fontRva, &font);
+    ui::write(executable, selectedUi().shaderRva, &shader);
     textureTable[0x70 / sizeof(void*)] = reinterpret_cast<void*>(bindTexture);
     fontTable.fill(nullptr);
-    ui::write(game.data(), 0xb048, &texture);
+    ui::write(game.data(), selectedUi().gameWhiteTextureOffset, &texture);
     windows = {window.data(), otherWindow.data()};
-    ui::write(game.data(), 0xcac0, windows.data());
-    ui::write(game.data(), 0xcac8, windows.data()+windows.size());
-    ui::write(game.data(), 0xad74, -1);
+    ui::write(game.data(), selectedUi().gameWindowsBeginOffset, windows.data());
+    ui::write(game.data(), selectedUi().gameWindowsEndOffset, windows.data()+windows.size());
+    ui::write(game.data(), selectedUi().gameSelectionOffset, -1);
     ui::write(window.data(), 4, 720.f); ui::write(window.data(), 8, 540.f);
     ui::write(window.data(), 0x23c, kNativePlayerReference);
     ui::write(window.data(), 0x34, 1); ui::write(window.data(), 0x38, 0x983e);
-    ui::write(window.data(), 0x248, 4); ui::write(window.data(), 0x24c, 1);
+    ui::write(window.data(), selectedUi().windowTypeOffset, 4); ui::write(window.data(), selectedUi().windowStyleOffset, 1);
     require(markNativePlayerWindow(window.data()), "mark verified fixture window");
+    const auto l=currentLayout();
+    require(ui::read<float>(window.data(),selectedUi().windowWidthOffset)==l.frame.w &&
+        ui::read<float>(window.data(),selectedUi().windowHeightOffset)==l.frame.h &&
+        ui::read<float>(window.data(),selectedUi().windowBottomOffset)==l.frame.y+l.frame.h &&
+        ui::read<float>(window.data(),selectedUi().windowContentBottomOffset)==l.frame.y+l.frame.h,
+        "native bookkeeping uses the selected window layout");
     ui::context.openedAt = GetTickCount64()-1000;
     song(L"First track");
     std::memset(static_cast<unsigned char*>(ui::panel())+0x287, 0xa5, 0x3e);
@@ -152,7 +162,7 @@ static void testIdentityAndRefresh() {
     reset();
     require(isNativePlayerWindow(window.data()) && !isNativePlayerWindow(nullptr) &&
         !isNativePlayerWindow(reinterpret_cast<void*>(1)), "owned identity and unreadable objects");
-    for (size_t offset : {size_t(0x23c),size_t(0x34),size_t(0x38),size_t(0x248),size_t(0x24c),kNativePlayerCookieOffset}) {
+    for (size_t offset : {size_t(0x23c),size_t(0x34),size_t(0x38),size_t(selectedUi().windowTypeOffset),size_t(selectedUi().windowStyleOffset),kNativePlayerCookieOffset}) {
         otherWindow = window; otherWindow[offset] ^= 1;
         const auto untouched = otherWindow;
         require(!isNativePlayerWindow(otherWindow.data()), "every identity component is required");
@@ -172,6 +182,23 @@ static void testIdentityAndRefresh() {
     checkPanelRestored();
 }
 
+static void testProfileBounds() {
+    reset();
+    float w=0,h=0,s=0;
+    require(ui::viewport(w,h,s), "profile globals fit the complete fake module");
+    api.exeSize=selectedUi().widthRva;
+    require(!ui::viewport(w,h,s), "committed memory outside the module cannot supply viewport globals");
+    require(!ui::moduleReadable(selectedUi().widthRva,sizeof(int)),
+        "module bound is enforced even when the whole page is readable");
+    api.exeSize=executableSize;
+    require(ui::viewport(w,h,s), "restoring the module extent restores viewport access");
+    auto bad=selectedUi();
+    bad.windowWidthOffset=bad.windowSize;
+    require(!ui::windowLayoutFits(bad), "truncated native window layout is rejected");
+    bad=selectedUi(); bad.windowTypeOffset=SIZE_MAX;
+    require(!ui::windowLayoutFits(bad), "overflowing native field offset is rejected");
+}
+
 static void testControlsAndGating() {
     constexpr MusicAction expected[] = {MusicAction::PreviousTrack, MusicAction::Restart, MusicAction::PlayPause, MusicAction::Next};
     for (size_t button=0; button<4; ++button) {
@@ -184,14 +211,14 @@ static void testControlsAndGating() {
     for (unsigned gate=0; gate<8; ++gate) {
         reset(); pointAt(currentLayout().buttons[3]); mouseDown = mousePress = true;
         if (gate == 0) std::swap(windows[0], windows[1]);
-        if (gate == 1) ui::write<unsigned char>(game.data(), 0xfc1, 1);
-        if (gate == 2) ui::write(game.data(), 0xad74, 0);
+        if (gate == 1) ui::write<unsigned char>(game.data(), selectedUi().gameBlockInputOffset, 1);
+        if (gate == 2) ui::write(game.data(), selectedUi().gameSelectionOffset, 0);
         if (gate == 3) ui::write<unsigned char>(window.data(), 0, 1);
         if (gate == 4) ui::context.openedAt = GetTickCount64();
-        if (gate == 5) ui::write(game.data(),0xcac8,windows.data());
-        if (gate == 6) ui::write(game.data(),0xcac0,reinterpret_cast<void*>(1));
+        if (gate == 5) ui::write(game.data(),selectedUi().gameWindowsEndOffset,windows.data());
+        if (gate == 6) ui::write(game.data(),selectedUi().gameWindowsBeginOffset,reinterpret_cast<void*>(1));
         if (gate == 7) {
-            ui::write(game.data(),0x13bf0,guide.data());
+            ui::write(game.data(),selectedUi().gameGuidedOverlayOffset,guide.data());
             ui::write<unsigned char>(guide.data(),0x14,1);
             ui::write(guide.data(),0x68,window.data());
         }
@@ -203,14 +230,14 @@ static void testControlsAndGating() {
     require(actions.size() == 1 && consumed == 1 && !mousePress, "rejected queue click remains consumed rather than falling through");
     reset(); const auto l = currentLayout(); mouse = {l.frame.x+20, l.frame.y+120, 0}; mousePress = true; paint();
     require(actions.empty() && consumed == 1 && !mousePress, "empty player body consumes foreground click without an action");
-    require(ui::read<unsigned char>(game.data(), 0xfc3) == 1 && ui::read<void*>(game.data(), 0xcb80) == window.data(),
+    require(ui::read<unsigned char>(game.data(), selectedUi().gameHoverFlagOffset) == 1 && ui::read<void*>(game.data(), selectedUi().gameHoveredWindowOffset) == window.data(),
         "hover advertises native window ownership to world input bookkeeping");
     reset(); ui::write<unsigned char>(window.data(),1,1); pointAt(currentLayout().buttons[3]);
     mouseDown = mousePress = true;
     require(!nativePlayerHit(game.data(),window.data()), "minimized lower body does not capture native hit");
     paint();
     require(actions.empty() && consumed == 0 && mousePress && !rectangles.empty() &&
-        rectangles.front().h == ui::kTitleHeight && ui::read<unsigned char>(game.data(),0xfc3) == 0,
+        rectangles.front().h == ui::kTitleHeight && ui::read<unsigned char>(game.data(),selectedUi().gameHoverFlagOffset) == 0,
         "minimized window draws only header and leaves lower body input free");
 }
 
@@ -226,12 +253,12 @@ static void testDragClampClose() {
     require(l.frame.x+l.frame.w <= 1432 && l.frame.y+l.frame.h <= 1072, "drag clamps bottom-right frame to viewport");
     mouseDown = false; paint();
     require(ui::context.dragIdentity == 0 && !nativePlayerHit(game.data(),window.data()), "mouse release ends drag ownership");
-    ui::write(executable,0x99528c,640); ui::write(executable,0x995274,480); paint(); l = currentLayout();
+    ui::write(executable,selectedUi().widthRva,640); ui::write(executable,selectedUi().heightRva,480); paint(); l = currentLayout();
     require(l.frame.x+l.frame.w <= 632 && l.frame.y+l.frame.h <= 472, "resolution shrink clamps the existing player onscreen");
     checkPanelRestored();
     pointAt(l.close); mouseDown = mousePress = true; const unsigned before = consumed; paint();
     require(ui::read<unsigned char>(window.data(),0) == 1 && consumed == before+1 &&
-        ui::context.dragIdentity == 0 && actions.empty() && ui::read<float>(game.data(),0xfc8) == -.5f,
+        ui::context.dragIdentity == 0 && actions.empty() && ui::read<float>(game.data(),selectedUi().gameCloseDelayOffset) == -.5f,
         "close consumes click, flags owned window and arms native click-through cooldown");
     require(!nativePlayerHit(game.data(),window.data()), "closed window cannot capture native hit");
     checkPanelRestored();
@@ -304,9 +331,19 @@ static void testCompactIconsAndHover() {
 }
 
 int main() {
-    executable = static_cast<unsigned char*>(VirtualAlloc(nullptr,executableSize,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE));
-    require(executable != nullptr, "allocate bounded fake executable globals");
-    testIdentityAndRefresh(); testDragClampClose(); testTextBoundsAndLayout(); testControlsAndGating(); testCompactIconsAndHover();
-    ui::context = {}; VirtualFree(executable,0,MEM_RELEASE);
-    puts("PASS: native player ownership, live refresh, literal text, native input gating/consumption, controls, drag/clamp/close and shared panel restoration.");
+    for(const auto& build:kVerifiedGameBuilds) {
+        selectedBuild=&build;
+        const auto& p=selectedUi();
+        executableSize=std::max({p.panelRva+0x6750,p.inputRva+0x700,
+            p.fontRva+sizeof(void*),p.fontManagerRva+sizeof(void*),p.shaderRva+sizeof(void*),
+            p.widthRva+sizeof(int),p.heightRva+sizeof(int),p.scaleRva+sizeof(float)});
+        game.resize(std::max(ui::gameFrameBytes(p),p.gameGuidedOverlayOffset+sizeof(void*)));
+        window.resize(p.windowSize); otherWindow.resize(p.windowSize);
+        executable = static_cast<unsigned char*>(VirtualAlloc(nullptr,executableSize,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE));
+        require(executable != nullptr, "allocate bounded fake executable globals");
+        testProfileBounds(); testIdentityAndRefresh(); testDragClampClose(); testTextBoundsAndLayout();
+        testControlsAndGating(); testCompactIconsAndHover();
+        ui::context = {}; VirtualFree(executable,0,MEM_RELEASE); executable=nullptr;
+        std::printf("PASS: native player profile %s ownership, bounds, live refresh, literal text, input, controls, drag/clamp/close and panel restoration.\n",build.version);
+    }
 }

@@ -73,14 +73,17 @@ static void displayAcceptance() {
         displayValue = "true"; parseDisplayConfig(config);
         require(config.showTrackName && config.nativeSongPopup, "explicit HUD opt-in is preserved alongside player");
         displayValue = "broken"; parseDisplayConfig(config); require(!config.showTrackName, "bad display toggle disables only display");
-        auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, 0xa00000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        const auto& ui = *gameBuild->ui;
+        const size_t bytes = std::max({ui.fontRva, ui.fontManagerRva, ui.widthRva,
+            ui.heightRva, ui.scaleRva, gameBuild->hudFrameRva}) + 0x1000;
+        auto* memory = static_cast<unsigned char*>(VirtualAlloc(nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
         require(memory != nullptr, "fake render memory");
         uint64_t font = 0; void* fontPointer = &font;
-        memcpy(memory + 0x994200, &fontPointer, sizeof(fontPointer));
-        *reinterpret_cast<int*>(memory + 0x99528c) = 1280;
-        *reinterpret_cast<int*>(memory + 0x995274) = 720;
-        *reinterpret_cast<float*>(memory + 0x992088) = 1.f;
-        api.exeModule = memory; api.readablePtr = fakeReadable; api.findIatSlot = fakeFind;
+        memcpy(memory + ui.fontRva, &fontPointer, sizeof(fontPointer));
+        *reinterpret_cast<int*>(memory + ui.widthRva) = 1280;
+        *reinterpret_cast<int*>(memory + ui.heightRva) = 720;
+        *reinterpret_cast<float*>(memory + ui.scaleRva) = 1.f;
+        api.exeModule = memory; api.exeSize = bytes; api.readablePtr = fakeReadable; api.findIatSlot = fakeFind;
         api.installInlineHook = fakeInstall; api.consume = fakeConsume;
         manager.config.showTrackName = true; manager.config.displayRussian = true;
         manager.activeTrackId = manager.catalog[0].id; notifyTrackStartedLocked(GetTickCount64());
