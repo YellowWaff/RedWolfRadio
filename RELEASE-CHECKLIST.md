@@ -1,8 +1,8 @@
 # Public release checklist
 
-## 1.0.2 compatibility preparation — November 25, 2026
+## 1.0.2 publication status — November 25, 2026
 
-The local candidate targets the exact WRSR 1.2.0.9 binaries with the original RML 1.0.1. Space Program is installed on the test system. The public release remains 1.0.1 until the remaining acceptance and publication steps are completed.
+The tested 1.0.2 source, tag, [GitHub release](https://github.com/YellowWaff/RedWolfRadio/releases/tag/v1.0.2) and [existing Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3805202523) are published. The exact WRSR 1.2.0.9 profile was accepted with original RML 1.0.1 and Space Program installed. Both public GitHub downloads and the actual subscribed Workshop update are verified; personal settings remained unchanged. Space Program is not a Radio dependency.
 
 - [x] Distinguish the initially installed 1.2.0.8 files from Steam's subsequent 1.2.0.9 download, build `26898154`.
 - [x] Audit engine resolver/state/voice addresses, native UI code/globals and changed game/window layouts; retain exact binary/runtime checks and older profiles.
@@ -11,8 +11,12 @@ The local candidate targets the exact WRSR 1.2.0.9 binaries with the original RM
 - [x] Start 1.2.0.9 through original RML: thirteen hooks, zero failures, bootstrap `0x0`; verify the live player and on-screen commands in a paused republic.
 - [x] Complete manual audible playback, volume, dragging, keyboard and natural-transition acceptance.
 - [x] Check normal shutdown/relaunch: sessions of 37m50s and 10m17s exited with `0x0`; the relaunch retained thirteen passing hooks, no failures, no lost trace events and unchanged settings. Automated native XWMA/optional display coverage is recorded separately from live acceptance.
-- [ ] Finalize English/Russian documentation and audit clean release archives containing the accepted DLL.
-- [ ] Publish source/tag, GitHub assets and the existing Workshop item; verify actual downloads and final personal settings.
+- [x] Finalize English/Russian documentation and audit both frozen 24-file archives containing the accepted DLL, portable INI and companion Script/artwork. See `evidence/release-1.0.2/archive-audit.json`.
+- [x] Publish source commit `dbc4581bcd7bfb8486fb9071dfe7fd89dd795689` and tag `v1.0.2`; publish GitHub assets and verify both unauthenticated public downloads against their frozen hashes.
+- [x] Submit existing Workshop item `3805202523`: upload `OK` at 12:16:06 America/Chicago, manifest `1101521643243115097`. Save and publicly verify the dedicated Russian description plus bilingual/default and Russian change notes.
+- [x] Verify the ordinary subscribed update completed `No Error` at 12:17:42 and installed the new manifest. Twenty-two of twenty-four files match the archive; the preview matches post-upload authoring and the retained personal INI matches its external backup. No settings restoration occurred. INI SHA-256 remains `1714311a3319a91078e8eda90e12c18387f5d4682d66d7adc6a1f9c85b1bd789`; current RML configuration remains `8baf1c9a903ab5e3248b92e1dc1e4bbe760f24072a4b8947f76aa01f562a573e`.
+
+The source release commit, tag and archive bytes are frozen. Later publication-record updates on `main` do not rebuild those assets. See [VALIDATION.md](VALIDATION.md) for receipts and testing limits.
 
 ## 1.0.1 publication status — November 11, 2026
 

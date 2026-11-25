@@ -67,11 +67,20 @@ Upload the approved image as the Steam listing preview and include `previewimage
 
 The packaging script stages the DLL, defaults, documentation, artwork, companion action/icon, and registration fragment. It checks that the DLL's embedded version matches `VERSION` and the package label; it also verifies the required runtime files against their sources and writes their hashes into `SHA256SUMS.txt`. Both archives include the companion files, current English/Russian guides, and canonical listing descriptions (`workshop-description.txt` and `workshop-description.ru.txt`). Internal acceptance instructions and superseded listing drafts are not included. It does not create `workshopconfig.ini`, register an item with Steam, or publish it. Merge the fragment and test the resulting authoring item before treating the Workshop archive as a finished upload. A locally built `1.0.0` archive alone does not establish that the public update has been uploaded or downloaded successfully; those results are recorded separately in [VALIDATION.md](VALIDATION.md).
 
-## 1.0.2 release preparation — November 25, 2026
+## 1.0.2 downloads and Workshop delivery — November 25, 2026
 
 The accepted 1.0.2 build adds the exact WRSR 1.2.0.9 profile, retains 1.1.1.13 and 1.1.1.9, and requires the original RML 1.0.1. The tested DLL SHA-256 is `a35636a944693f5cb30cef8fc1e93f15139ad7c0c25a4cb95610b318f05b0adb`. Full automated checks, user playback/control acceptance and normal shutdown/relaunch are complete; see [VALIDATION.md](VALIDATION.md). Space Program is installed on the test system and is not a dependency of Radio.
 
-The release archives are `RedWolfRadio-1.0.2.zip` and `RedWolfRadio-Workshop-1.0.2.zip`. Publish those frozen archives under `v1.0.2` and stage the Workshop layout into existing item `3805202523`. Record the public asset hashes, upload manifest and actual subscribed download separately after publication. The 1.0.1 records below are historical; their archives and tag remain frozen.
+[GitHub release v1.0.2](https://github.com/YellowWaff/RedWolfRadio/releases/tag/v1.0.2) was published at **12:15:44 America/Chicago on November 25, 2026**, from commit `dbc4581bcd7bfb8486fb9071dfe7fd89dd795689`. Both public downloads match their frozen local archives and GitHub asset digests:
+
+| Current download | SHA-256 |
+|---|---|
+| `RedWolfRadio-1.0.2.zip` | `22b70a363d3650c05a3543339dda1d24d31a706e12d891d8107f586078064b52` |
+| `RedWolfRadio-Workshop-1.0.2.zip` | `92e560bbd192812531aeeb4d363c2fed314cc2c193b6732da0f93114ac4978dd` |
+
+Each archive has twenty-four verified files. Existing Workshop item `3805202523` uploaded successfully at **12:16:06**, manifest **`1101521643243115097`**. Its bilingual listing, dedicated Russian description and both change-note language views were publicly verified. The ordinary subscribed download completed with **No Error at 12:17:42** and installed that manifest. Twenty-two of twenty-four downloaded files match the archive; the rewritten preview matches post-upload authoring, and Steam retained the personalized INI. The personal INI and RML configuration remained unchanged; no restoration occurred.
+
+Receipts are retained under `evidence/release-1.0.2/`, with details in [VALIDATION.md](VALIDATION.md). The 1.0.2 source release commit, tag and archives are frozen; these later publication records do not rewrite them. The 1.0.1 records below are historical.
 
 ## Historical 1.0.1 downloads — November 11, 2026
 
